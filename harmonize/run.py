@@ -11,14 +11,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from harmonize.calibrate import fit, leave_one_year_out, lift
+from harmonize.calibrate import OVERLAP, fit, leave_one_year_out, lift
+from harmonize.circle_test import circle_models, circle_samples, circle_validation
 from harmonize.compare import compare_sources
 from harmonize.grid import cell_days, monthly_counts, viirs_reference
 from harmonize.schema import clean, flag_static, load_all, load_source, source_paths
 
 SWITCH = pd.Period("2012-02", "M")          # first full month of VIIRS
 TERRA_ONLY_END = pd.Period("2002-07", "M")  # Aqua joins Terra
-OVERLAP = ("2012-02", "2025-12")            # months used to fit and test
 CSV_MAX_ROWS = 2_000_000                    # above this the unified table is Parquet only
 
 
@@ -120,8 +120,14 @@ def main(region="quebec", root="."):
     build_daily(cd).to_csv(out_dir / "harmonized_daily.csv", index=False)
     harmonized.round(1).to_csv(out_dir / "harmonized_monthly.csv")
     validation.round(1).to_csv(out_dir / "validation.csv")
+    # the region-wide curve is only right for region-wide totals; circles get their own
+    samples = circle_samples(cd)
+    circle_check = circle_validation(cd, samples=samples)
+    circle_check.round(1).to_csv(out_dir / "circle_validation.csv", index=False)
+    by_radius = {str(radius): m for radius, m in circle_models(samples, fallback=model).items()}
     (out_dir / "model.json").write_text(json.dumps(
-        {**model, "cell_deg": 0.1, "fit_months": list(OVERLAP), "switch_month": str(SWITCH)}, indent=2))
+        {**model, "cell_deg": 0.1, "fit_months": list(OVERLAP), "switch_month": str(SWITCH),
+         "by_radius": by_radius}, indent=2))
 
     _plot_before(hotspots, out_dir / "before.png")
     _plot_after(monthly, harmonized, out_dir / "after.png")
@@ -133,6 +139,8 @@ def main(region="quebec", root="."):
         print(validation.round(1))
     print("\nMean error predicting a hidden year (%):")
     print(validation[["err_none", "err_fixed", "err_curve"]].mean().round(1).to_string())
+    print("\nSame test on circles the size users pick:")
+    print(circle_check.round(1).to_string(index=False))
     print(f"\nWrote {out_dir}/")
 
 
