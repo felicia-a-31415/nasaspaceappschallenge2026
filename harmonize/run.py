@@ -19,6 +19,7 @@ from harmonize.schema import clean, flag_static, load_all, load_source, source_p
 SWITCH = pd.Period("2012-02", "M")          # first full month of VIIRS
 TERRA_ONLY_END = pd.Period("2002-07", "M")  # Aqua joins Terra
 OVERLAP = ("2012-02", "2025-12")            # months used to fit and test
+CSV_MAX_ROWS = 2_000_000                    # above this the unified table is Parquet only
 
 
 def build_monthly(monthly, model):
@@ -97,11 +98,16 @@ def main(region="quebec", root="."):
            for (dataset, kind), paths in source_paths(root, region).items() if paths}
     comparison = compare_sources(raw)
     comparison.to_csv(out_dir / "source_comparison.csv")
+    del raw
 
     hotspots = flag_static(load_all(root, region))
-    hotspots.to_csv(out_dir / "hotspots_unified.csv.gz", index=False)
+    hotspots.sort_values("latitude").to_parquet(out_dir / "hotspots.parquet", index=False)
+    if len(hotspots) < CSV_MAX_ROWS:
+        hotspots.to_csv(out_dir / "hotspots_unified.csv.gz", index=False)
 
+    # both sensors over the whole period: the web server re-does the correction per circle
     cd = cell_days(viirs_reference(clean(hotspots)))
+    cd.to_parquet(out_dir / "cell_days.parquet", index=False)
     start = hotspots["acq_date"].min().to_period("M")
     end = hotspots["acq_date"].max().to_period("M")
     monthly = monthly_counts(cd, start, end)

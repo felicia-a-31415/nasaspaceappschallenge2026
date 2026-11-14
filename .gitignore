@@ -4,3 +4,9 @@ claude/
 __pycache__/
 .pytest_cache/
 .superpowers/
+.env
+data/canada/
+outputs/canada/hotspots.parquet
+cache/
+web/node_modules/
+web/dist/
