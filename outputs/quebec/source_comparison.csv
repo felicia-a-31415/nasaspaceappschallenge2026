@@ -1,0 +1,16 @@
+column,modis archive,modis nrt,viirs_snpp archive,viirs_snpp nrt,viirs_noaa20 archive,viirs_noaa20 nrt,differs
+latitude,44.9992 to 62.1912,45.83471 to 58.70087,44.99866 to 62.40684,45.07971 to 61.59,44.99384 to 62.40578,45.08253 to 61.7135,True
+longitude,-79.5178 to -58.5515,-79.22911 to -67.62001,-79.51722 to -57.19335,-79.3372 to -59.97173,-79.51764 to -57.35823,-79.33558 to -64.91853,True
+brightness,300.0 to 510.3,300.02 to 347.15,208.0 to 367.0,208.0 to 367.0,207.93 to 367.0,295.02 to 367.0,True
+scan,1.0 to 4.8,1.0 to 2.68,0.32 to 0.8,0.32 to 0.79,0.32 to 0.8,0.32 to 0.8,True
+track,1.0 to 2.0,1.0 to 1.57,0.36 to 0.78,0.36 to 0.78,0.36 to 0.78,0.36 to 0.78,True
+acq_date,2215 distinct,16 distinct,3409 distinct,85 distinct,2055 distinct,95 distinct,True
+acq_time,0 to 2358,41 to 2027,447 to 1927,525 to 1925,446 to 1926,508 to 1925,True
+satellite,"Aqua, Terra","Aqua, Terra",SNPP,SNPP,N20,N20,True
+instrument,MODIS,MODIS,SNPP,SNPP,VIIRS,VIIRS,True
+confidence,0 to 100,0 to 89,"h, l, n","h, l, n","h, l, n","h, l, n",True
+version,6.03 to 61.03,6.1NRT,2,2.0NRT,2,2.0NRT,True
+bright_t31,265.3 to 400.1,278.5 to 299.69,232.12 to 386.75,260.55 to 376.58,234.0 to 379.43,262.35 to 378.14,True
+frp,0.0 to 9938.7,2.1 to 73.62,0.0 to 1625.32,0.09 to 470.72,0.0 to 2827.69,0.03 to 422.16,True
+daynight,"D, N","D, N","D, N","D, N","D, N","D, N",False
+type,0 to 3,absent,0 to 3,absent,0 to 3,absent,True

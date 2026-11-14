@@ -11,6 +11,8 @@ def _describe(col):
     numeric = pd.to_numeric(values, errors="coerce")
     if numeric.notna().all():
         lo, hi = numeric.min(), numeric.max()
+        if lo == hi:
+            return str(values.iloc[0])
         if (numeric % 1 == 0).all() and not pd.api.types.is_float_dtype(values):
             return f"{int(lo)} to {int(hi)}"
         return f"{float(lo)} to {float(hi)}"

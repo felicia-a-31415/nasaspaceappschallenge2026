@@ -1,0 +1,134 @@
+"""Run the whole harmonization and write tables and charts to outputs/.
+
+Usage: python -m harmonize.run [region]      (region defaults to "quebec")
+"""
+import json
+import sys
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import pandas as pd
+
+from harmonize.calibrate import fit, leave_one_year_out, lift
+from harmonize.compare import compare_sources
+from harmonize.grid import cell_days, monthly_counts, viirs_reference
+from harmonize.schema import clean, flag_static, load_all, load_source, source_paths
+
+SWITCH = pd.Period("2012-02", "M")          # first full month of VIIRS
+TERRA_ONLY_END = pd.Period("2002-07", "M")  # Aqua joins Terra
+OVERLAP = ("2012-02", "2025-12")            # months used to fit and test
+
+
+def build_monthly(monthly, model):
+    """One series in VIIRS-level square-days: lifted MODIS, then VIIRS itself."""
+    lifted = lift(monthly["MODIS"], model)
+    early = monthly.index < SWITCH
+    out = pd.DataFrame(index=monthly.index)
+    out["activity"] = lifted["value"].where(early, monthly["VIIRS"].astype(float))
+    out["low"] = lifted["low"].where(early, out["activity"])
+    out["high"] = lifted["high"].where(early, out["activity"])
+    out["estimated"] = early
+    out["terra_only"] = monthly.index < TERRA_ONLY_END
+    out["sensor_used"] = pd.Series(early, index=monthly.index).map({True: "MODIS", False: "VIIRS"})
+    return out
+
+
+def build_daily(cd):
+    """Burning squares per day from whichever sensor the monthly series uses."""
+    month = cd["date"].dt.to_period("M")
+    use = ((cd["sensor"] == "MODIS") & (month < SWITCH)) | ((cd["sensor"] == "VIIRS") & (month >= SWITCH))
+    return cd[use].rename(columns={"sensor": "sensor_used"}).reset_index(drop=True)
+
+
+def _plot_before(hotspots, path):
+    raw = hotspots.groupby([hotspots["acq_date"].dt.to_period("M"), "dataset"]).size().unstack()
+    labels = {"modis": "MODIS", "viirs_snpp": "VIIRS (Suomi NPP)", "viirs_noaa20": "VIIRS (NOAA-20)"}
+    fig, ax = plt.subplots(figsize=(11, 4.5))
+    for key, label in labels.items():
+        if key in raw:
+            series = raw[key].dropna()
+            ax.plot(series.index.to_timestamp(), series.values, label=label, linewidth=1)
+    ax.set_yscale("log")
+    ax.set_ylabel("hotspots per month (log scale)")
+    ax.set_title("Before: raw hotspot counts disagree between sensors")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def _plot_after(monthly, harmonized, path):
+    x = harmonized.index.to_timestamp()
+    est = harmonized["estimated"].to_numpy()
+    fig, ax = plt.subplots(figsize=(11, 4.5))
+    ax.fill_between(x[est], harmonized["low"][est] + 1, harmonized["high"][est] + 1,
+                    alpha=0.25, color="tab:orange", label="80% band (estimated from MODIS)")
+    ax.plot(x, monthly["MODIS"] + 1, color="grey", linewidth=0.8, linestyle=":", label="MODIS, uncorrected")
+    ax.plot(x, harmonized["activity"] + 1, color="tab:red", linewidth=1.2, label="harmonized")
+    ax.axvline(SWITCH.to_timestamp(), color="black", linewidth=0.8, linestyle="--")
+    ax.set_yscale("log")
+    ax.set_ylabel("burning square-days per month, plus 1 (log scale)")
+    ax.set_title("After: one series at VIIRS level (dashed line: VIIRS takes over)")
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def _plot_validation(validation, path):
+    labels = {"err_none": "no correction", "err_fixed": "fixed multiplier", "err_curve": "our curve"}
+    fig, ax = plt.subplots(figsize=(11, 4.5))
+    validation[list(labels)].rename(columns=labels).plot.bar(ax=ax, width=0.8)
+    ax.set_ylabel("error predicting the hidden year (%)")
+    ax.set_xlabel("year hidden from the fit")
+    ax.set_title("Test: predict each year's VIIRS total from MODIS alone")
+    fig.tight_layout()
+    fig.savefig(path, dpi=150)
+    plt.close(fig)
+
+
+def main(region="quebec", root="."):
+    out_dir = Path(root) / "outputs" / region
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    raw = {f"{dataset} {kind}": pd.concat([load_source(p) for p in paths])
+           for (dataset, kind), paths in source_paths(root, region).items() if paths}
+    comparison = compare_sources(raw)
+    comparison.to_csv(out_dir / "source_comparison.csv")
+
+    hotspots = flag_static(load_all(root, region))
+    hotspots.to_csv(out_dir / "hotspots_unified.csv.gz", index=False)
+
+    cd = cell_days(viirs_reference(clean(hotspots)))
+    start = hotspots["acq_date"].min().to_period("M")
+    end = hotspots["acq_date"].max().to_period("M")
+    monthly = monthly_counts(cd, start, end)
+
+    overlap = monthly.loc[OVERLAP[0]:OVERLAP[1]]
+    model = fit(overlap)
+    validation = leave_one_year_out(overlap)
+    harmonized = build_monthly(monthly, model)
+
+    build_daily(cd).to_csv(out_dir / "harmonized_daily.csv", index=False)
+    harmonized.round(1).to_csv(out_dir / "harmonized_monthly.csv")
+    validation.round(1).to_csv(out_dir / "validation.csv")
+    (out_dir / "model.json").write_text(json.dumps(
+        {**model, "cell_deg": 0.1, "fit_months": list(OVERLAP), "switch_month": str(SWITCH)}, indent=2))
+
+    _plot_before(hotspots, out_dir / "before.png")
+    _plot_after(monthly, harmonized, out_dir / "after.png")
+    _plot_validation(validation, out_dir / "validation.png")
+
+    with pd.option_context("display.width", 250, "display.max_columns", None, "display.max_colwidth", 28):
+        print(comparison)
+        print()
+        print(validation.round(1))
+    print("\nMean error predicting a hidden year (%):")
+    print(validation[["err_none", "err_fixed", "err_curve"]].mean().round(1).to_string())
+    print(f"\nWrote {out_dir}/")
+
+
+if __name__ == "__main__":
+    main(*sys.argv[1:2])

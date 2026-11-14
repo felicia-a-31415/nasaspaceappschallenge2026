@@ -47,3 +47,20 @@ def test_clean_drops_type_2_and_3_keeps_missing():
                    + [unify(_viirs_nrt(), "viirs_snpp", "nrt")])
     out = clean(df)
     assert len(out) == 2 and set(out["type"].dropna()) == {0}
+
+
+def test_unlabelled_rows_on_known_static_sources_are_dropped():
+    from harmonize.schema import flag_static
+    smelter = dict(latitude=48.2541, longitude=-79.0229)
+    df = pd.concat(
+        [unify(_modis(type=2, **smelter), "modis", "archive") for _ in range(3)]
+        + [unify(_modis(type=2, latitude=50.0, longitude=-70.0), "modis", "archive")]  # seen once only
+        + [unify(_viirs_nrt(**smelter), "viirs_snpp", "nrt"),                      # on the smelter
+           unify(_viirs_nrt(latitude=50.001, longitude=-69.999), "viirs_snpp", "nrt"),  # one-off spot
+           unify(_viirs_nrt(), "viirs_snpp", "nrt")],                             # open country
+        ignore_index=True)
+    flagged = flag_static(df)
+    assert flagged["likely_static"].tolist() == [True, True, True, False, True, False, False]
+    out = clean(df)
+    assert len(out) == 2 and out["type_missing"].all()
+    assert not out["likely_static"].any()

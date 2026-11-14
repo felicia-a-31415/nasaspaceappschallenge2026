@@ -85,6 +85,31 @@ def load_all(root=".", region="quebec"):
     return pd.concat(parts, ignore_index=True)
 
 
+STATIC_CELL_DEG = 0.01   # about 1 km
+STATIC_MIN_HITS = 3
+
+
+def _static_key(df):
+    lat = np.floor(np.round(df["latitude"] / STATIC_CELL_DEG, 6)).astype(int)
+    lon = np.floor(np.round(df["longitude"] / STATIC_CELL_DEG, 6)).astype(int)
+    return lat.astype(str) + "_" + lon.astype(str)
+
+
+def flag_static(df):
+    """Add `likely_static`: the spot has repeated non-fire detections (type 2 or 3).
+
+    The recent (nrt) files carry no `type`, so smelters, mills and flares in
+    them can only be recognised by where the archive has already seen them.
+    """
+    key = _static_key(df)
+    hits = key[df["type"].isin([2, 3])].value_counts()
+    static = set(hits[hits >= STATIC_MIN_HITS].index)
+    return df.assign(likely_static=key.isin(static).to_numpy())
+
+
 def clean(df):
-    """Drop detections FIRMS marks as not vegetation fires (type 2 and 3)."""
-    return df[~df["type"].isin([2, 3])].reset_index(drop=True)
+    """Keep vegetation fires: drop type 2 and 3, and unlabelled rows on static spots."""
+    if "likely_static" not in df.columns:
+        df = flag_static(df)
+    drop = df["type"].isin([2, 3]) | (df["type_missing"] & df["likely_static"])
+    return df[~drop].reset_index(drop=True)
