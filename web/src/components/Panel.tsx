@@ -13,7 +13,6 @@ import { ActivityChart } from './ActivityChart'
 import { Downloads } from './Downloads'
 import { ForecastSlot } from './ForecastSlot'
 import { Outlook } from './Outlook'
-import { Provenance } from './Provenance'
 import { TopAreas } from './TopAreas'
 import { WeatherStrip } from './WeatherStrip'
 import { YearChart } from './YearChart'
@@ -47,7 +46,7 @@ export interface PanelProps {
  * notice that this is an archive with an end date and not a live feed.
  */
 export function Panel(props: PanelProps) {
-  const { view, selection, panel, topAreas, onPick, dataThrough, about } = props
+  const { view, selection, panel, topAreas, onPick, dataThrough } = props
   const shift = view.mode === 'shift'
 
   return (
@@ -77,12 +76,11 @@ export function Panel(props: PanelProps) {
       )}
 
       <TopAreas state={topAreas} onPick={onPick} />
-      {!selection && <Provenance about={about} selection={null} dataThrough={dataThrough} onMethod={props.onMethod} />}
     </>
   )
 }
 
-function Answer({ view, selection, placeName, answer, weather, about, hotspots, dataThrough, onMethod, getCanvas }: PanelProps & {
+function Answer({ view, selection, placeName, answer, weather, hotspots, onMethod, getCanvas }: PanelProps & {
   selection: Selection
   answer: PanelAnswer
 }) {
@@ -95,7 +93,7 @@ function Answer({ view, selection, placeName, answer, weather, about, hotspots, 
     <header className="place">
       <h2>{placeName ?? where}</h2>
       <p className="place-sub">
-        {placeName ? `${where} · ` : ''}R {selection.radius_km} km · {selection.from && selection.to ? `${selection.from} → ${selection.to}` : 'full record'}
+        {placeName ? `${where} · ` : ''}{selection.radius_km} km radius · {selection.from && selection.to ? monthSpan(selection.from, selection.to) : 'full record'}
       </p>
     </header>
   )
@@ -114,11 +112,18 @@ function Answer({ view, selection, placeName, answer, weather, about, hotspots, 
     <Finding activity={activity} selection={selection} demoted={shift} onMethod={onMethod} />
   )
   const measured = stats && hasAnswer(stats.coverage) && <Measured stats={stats} shift={shift} />
-  const outlook = answer.outlook.ok ? <Outlook data={answer.outlook.data} raised={shift} /> : null
+  // The outlook lands after the rest (it waits on NASA POWER weather); hold its place.
+  const outlook = answer.outlook === null
+    ? (
+      <section className="outlook is-loading" aria-busy="true">
+        <h3>Outlook, next 14 days</h3>
+        <p className="small muted">Retrieving NASA POWER weather…</p>
+      </section>
+    )
+    : answer.outlook.ok ? <Outlook data={answer.outlook.data} raised={shift} /> : null
   const years = stats && hasAnswer(stats.coverage) && stats.detections > 0 && <YearChart years={stats.by_year} />
   const tail = (
     <>
-      <Provenance about={about} selection={selection} dataThrough={dataThrough} onMethod={onMethod} />
       <Downloads selection={selection} hotspots={hotspots} getCanvas={getCanvas} />
     </>
   )
@@ -140,6 +145,14 @@ function Presets({ presets }: { presets: PanelProps['presets'] }) {
       </div>
     </div>
   )
+}
+
+const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** "2023-05", "2023-08" reads "May 2023 → Aug 2023"; one month reads "Jun 2023". */
+export function monthSpan(from: string, to: string): string {
+  const name = (m: string) => `${MONTH_SHORT[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`
+  return from === to ? name(from) : `${name(from)} → ${name(to)}`
 }
 
 /** What kind of number follows: harmonized, measured, or estimated. */

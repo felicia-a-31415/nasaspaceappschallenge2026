@@ -3,13 +3,13 @@
 // Nominatim, OpenStreetMap's free search, which needs no key. Its terms ask for at most
 // one request a second and for the credit to be shown, so both are handled here.
 
-import { GOOGLE_PLACES_ENABLED, autocomplete, newSessionToken, placeDetail } from './googlePlaces'
+import { GOOGLE_PLACES_ENABLED, autocomplete, newSessionToken, nearestLocality, placeDetail } from './googlePlaces'
 
 const ENDPOINT = 'https://nominatim.openstreetmap.org/search'
 const MIN_GAP_MS = 1000
 
 export const PLACE_SEARCH_CREDIT = GOOGLE_PLACES_ENABLED
-  ? 'Place search: Google'
+  ? 'Place search: Google, OpenStreetMap Nominatim'
   : 'Place search: OpenStreetMap Nominatim'
 
 export interface Place {
@@ -91,4 +91,86 @@ export async function searchPlace(query: string, signal?: AbortSignal): Promise<
     lat: Number(first.lat),
     lon: Number(first.lon),
   }
+}
+
+// --- Naming a point ----------------------------------------------------------------
+//
+// A clicked point or a ranked cell is named by where it is relative to the nearest town:
+// "38 km NW of Chibougamau". With the Google key (itss.earth) that is Nearby Search; it
+// finds nothing past 50 km, and without the key (local work) nothing is asked of Google,
+// so both fall back to Nominatim's reverse lookup, which names the municipality or region.
+
+const REVERSE = 'https://nominatim.openstreetmap.org/reverse'
+const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+
+/** Great-circle distance in km and the compass point from a to b. */
+export function offset(aLat: number, aLon: number, bLat: number, bLon: number): { km: number; toward: string } {
+  const rad = Math.PI / 180
+  const [p1, p2] = [aLat * rad, bLat * rad]
+  const dl = (bLon - aLon) * rad
+  const h = Math.sin((p2 - p1) / 2) ** 2 + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2
+  const km = 2 * 6371 * Math.asin(Math.sqrt(h))
+  const y = Math.sin(dl) * Math.cos(p2)
+  const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl)
+  const bearing = (Math.atan2(y, x) / rad + 360) % 360
+  return { km, toward: COMPASS[Math.round(bearing / 45) % 8] }
+}
+
+/** "Chibougamau" when within 3 km of it, otherwise "38 km NW of Chibougamau". */
+export function relativeTo(town: { name: string; lat: number; lon: number }, lat: number, lon: number): string {
+  const { km, toward } = offset(town.lat, town.lon, lat, lon)
+  return km < 3 ? town.name : `${Math.round(km)} km ${toward} of ${town.name}`
+}
+
+/** Nominatim allows one request a second: every call waits its turn in one queue. */
+let queue: Promise<unknown> = Promise.resolve()
+function inTurn<T>(task: () => Promise<T>): Promise<T> {
+  const run = queue.then(async () => {
+    const wait = MIN_GAP_MS - (Date.now() - lastCall)
+    if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
+    lastCall = Date.now()
+    return task()
+  })
+  queue = run.catch(() => undefined)
+  return run
+}
+
+async function reverseRegion(lat: number, lon: number): Promise<string | null> {
+  const url = `${REVERSE}?${new URLSearchParams({
+    lat: String(lat), lon: String(lon), format: 'jsonv2', zoom: '10', 'accept-language': 'en,fr',
+  })}`
+  const res = await inTurn(() => fetch(url, { headers: { Accept: 'application/json' } }))
+  if (!res.ok) return null
+  const body = await res.json() as { address?: Record<string, string> }
+  const a = body.address ?? {}
+  const local = a.city ?? a.town ?? a.village ?? a.municipality ?? a.county
+  const region = a.state_district ?? a.region ?? a.state
+  const parts = [local, region].filter((part, i, all): part is string => !!part && all.indexOf(part) === i)
+  return parts.length ? parts.join(', ') : null
+}
+
+const named = new Map<string, Promise<string | null>>()
+
+/**
+ * A name a responder can use for a point, or null when none is found. Answers are kept,
+ * so the same point (to about 100 m) is only ever asked once.
+ */
+export function nameNear(lat: number, lon: number): Promise<string | null> {
+  const key = `${lat.toFixed(3)},${lon.toFixed(3)}`
+  let answer = named.get(key)
+  if (!answer) {
+    answer = (async () => {
+      if (GOOGLE_PLACES_ENABLED) {
+        try {
+          const town = await nearestLocality(lat, lon)
+          if (town) return relativeTo(town, lat, lon)
+        } catch {
+          // Fall through to the free lookup.
+        }
+      }
+      return reverseRegion(lat, lon)
+    })().catch(() => null)
+    named.set(key, answer)
+  }
+  return answer
 }

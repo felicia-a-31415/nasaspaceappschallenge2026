@@ -10,7 +10,8 @@ export interface PanelAnswer {
   place: string
   activity: Part<ActivityResponse>
   stats: Part<StatsResponse>
-  outlook: Part<OutlookResponse>
+  /** Null while it is still being worked out: it needs NASA POWER weather, which is slow. */
+  outlook: Part<OutlookResponse> | null
 }
 
 export interface PanelState {
@@ -20,7 +21,7 @@ export interface PanelState {
   pending: boolean
 }
 
-const SETTLE_MS = 300
+const SETTLE_MS = 120
 /** A place outside Quebec is fetched by the server on demand; this is how often to look. */
 const FETCH_POLL_MS = 2000
 
@@ -41,8 +42,10 @@ function part<T>(request: Promise<T>): Promise<Part<T>> {
 }
 
 /**
- * Everything the panel says about a place, asked together and shown together. The three
- * answers land as one, so the panel changes once instead of section by section. It waits
+ * Everything the panel says about a place. Activity and statistics are asked together and
+ * shown together, so the panel changes once. The outlook needs weather from NASA POWER,
+ * which can take seconds on a new place, so it fills its own slot when it lands rather
+ * than holding the rest back. It waits
  * for the selection to settle before asking, and an answer to a question that is no
  * longer the latest is dropped.
  */
@@ -65,13 +68,21 @@ export function usePanel(selection: Selection | null): PanelState {
     }))
 
     const ask = async () => {
-      const [activity, stats, outlook] = await Promise.all([
+      const outlookAsked = part(getOutlook(selection, controller.signal))
+      let outlookIn: Part<OutlookResponse> | null = null
+      void outlookAsked.then((outlook) => {
+        outlookIn = outlook
+        if (!live) return
+        setState((current) => (current.answer?.place === place
+          ? { ...current, answer: { ...current.answer, outlook } }
+          : current))
+      })
+      const [activity, stats] = await Promise.all([
         part(getActivity(selection, controller.signal)),
         part(getStats(selection, controller.signal)),
-        part(getOutlook(selection, controller.signal)),
       ])
       if (!live) return
-      setState({ answer: { place, activity, stats, outlook }, pending: false })
+      setState({ answer: { place, activity, stats, outlook: outlookIn }, pending: false })
       // Still being fetched from NASA: keep looking until it arrives.
       if (activity.ok && (activity.data.coverage === 'queued' || activity.data.coverage === 'fetching')) {
         timer = setTimeout(ask, FETCH_POLL_MS)

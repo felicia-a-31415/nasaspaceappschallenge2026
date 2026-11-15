@@ -17,6 +17,7 @@ import { usePanel } from './hooks/usePanel'
 import { useSelectionQuery } from './hooks/useSelectionQuery'
 import { useTimeline } from './hooks/useTimeline'
 import { useView } from './hooks/useView'
+import { nameNear } from './places'
 import { dayToDate } from './lib/days'
 import { count } from './lib/format'
 import { circlePolygon } from './lib/geo'
@@ -221,7 +222,16 @@ export default function App() {
     setWorkspace('map')
   }
 
-  const placeName = named && named.lat === lat && named.lon === lon ? named.name : null
+  // A clicked point has no name yet: look one up ("38 km NW of Chibougamau").
+  const [found, setFound] = useState<{ lat: number; lon: number; name: string } | null>(null)
+  const searched = named && named.lat === lat && named.lon === lon ? named.name : null
+  useEffect(() => {
+    if (lat === null || lon === null || searched) return
+    let live = true
+    void nameNear(lat, lon).then((name) => { if (live && name) setFound({ lat, lon, name }) })
+    return () => { live = false }
+  }, [lat, lon, searched])
+  const placeName = searched ?? (found && found.lat === lat && found.lon === lon ? found.name : null)
   const radii = about?.radii_km ?? RADII_KM
 
   return (
@@ -269,8 +279,8 @@ export default function App() {
       <aside className={`side ${panel.pending ? 'is-pending' : ''}`} aria-label="Inspector">
         <header className="sheet-head">
           <div className="brand">
-            <h1>Fire Record</h1>
-            <span>MODIS × VIIRS, harmonized</span>
+            <h1>ITSS</h1>
+            <span>Is There Seriously Smoke?</span>
           </div>
           <SearchBox onFound={choose} />
           <div className="seg seg-fill" role="group" aria-label="Workspace">

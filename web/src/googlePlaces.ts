@@ -100,3 +100,43 @@ export async function placeDetail(
     lon: Number(body.location?.longitude),
   }
 }
+
+export interface NearbyPlace {
+  name: string
+  lat: number
+  lon: number
+}
+
+/**
+ * The nearest town or city within `radiusM` (Google caps it at 50 km), or null. Uses
+ * Nearby Search from the same Places API (New), so the key needs nothing more.
+ */
+export async function nearestLocality(
+  lat: number,
+  lon: number,
+  radiusM = 50000,
+  signal?: AbortSignal,
+): Promise<NearbyPlace | null> {
+  const res = await fetch(`${BASE}/places:searchNearby`, {
+    method: 'POST',
+    signal,
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': KEY,
+      'X-Goog-FieldMask': 'places.displayName,places.location',
+    },
+    body: JSON.stringify({
+      includedTypes: ['locality'],
+      maxResultCount: 1,
+      rankPreference: 'DISTANCE',
+      locationRestriction: { circle: { center: { latitude: lat, longitude: lon }, radius: radiusM } },
+    }),
+  })
+  if (!res.ok) throw new Error('Nearby search failed')
+  const body = await res.json() as { places?: { displayName?: { text?: string }; location?: { latitude?: number; longitude?: number } }[] }
+  const first = body.places?.[0]
+  const name = first?.displayName?.text
+  const pLat = Number(first?.location?.latitude)
+  const pLon = Number(first?.location?.longitude)
+  return name && Number.isFinite(pLat) && Number.isFinite(pLon) ? { name, lat: pLat, lon: pLon } : null
+}
