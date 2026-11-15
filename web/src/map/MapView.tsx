@@ -1,3 +1,4 @@
+import { HeatmapLayer } from '@deck.gl/aggregation-layers'
 import { DataFilterExtension } from '@deck.gl/extensions'
 import { PolygonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import { MapLibreOverlay } from '@deck.gl/maplibre'
@@ -6,12 +7,14 @@ import { AttributionControl, config, Map as MapLibreMap, MapMouseEvent, Navigati
 // bundler can follow. Pointing it at the worker as an asset makes both the dev server
 // and the production build serve the right file.
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 import { formatDate } from '../lib/days'
 import { circlePolygon, CELL_DEG } from '../lib/geo'
 import type { HotspotArrays, Selection, TopArea } from '../types'
+import { rampColour } from './colourRamp'
+import { fieldShare, sliceByDay } from './field'
 
 config.WORKER_URL = workerUrl
 
@@ -21,25 +24,66 @@ const BASE_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.
 /** Filtering by day happens on the graphics card, so the slider never rebuilds data. */
 const DAY_FILTER = new DataFilterExtension({ filterSize: 1 })
 
+/** The field uses the same ramp as the dots, so one legend covers both. */
+const FIELD_COLOURS = Array.from({ length: 8 }, (_, i) => rampColour(i / 7))
+
 export interface MapViewProps {
   hotspots: HotspotArrays | null
   /** First and last visible day, in days since the hotspot epoch. */
   dayRange: [number, number]
+  /** Inside this the dots are drawn in full; between it and `dayRange` they fade out. */
+  softRange: [number, number] | null
+  /**
+   * Draw fire intensity as a glow when zoomed out. Only ever asked for while the time
+   * line is at rest: the dots are the layer that plays.
+   */
+  showField: boolean
   selection: Selection | null
   topAreas: TopArea[]
   onMapClick: (lat: number, lon: number) => void
   onMapReady?: (map: MapLibreMap) => void
 }
 
-export function MapView({ hotspots, dayRange, selection, topAreas, onMapClick, onMapReady }: MapViewProps) {
+export function MapView({ hotspots, dayRange, softRange, showField, selection, topAreas, onMapClick, onMapReady }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const overlayRef = useRef<MapLibreOverlay | null>(null)
   const hotspotsRef = useRef<HotspotArrays | null>(null)
   const clickRef = useRef(onMapClick)
 
+  const [zoom, setZoom] = useState(4)
+
   hotspotsRef.current = hotspots
   clickRef.current = onMapClick
+
+  // The glow is worked out from the hotspots in the chosen days only. They arrive in day
+  // order, so a period is one unbroken stretch of the arrays: nothing is copied.
+  const [firstDay, lastDay] = dayRange
+  const field = useMemo(() => {
+    if (!hotspots || !showField) return null
+    const slice = sliceByDay(hotspots.day, firstDay, lastDay)
+    if (!slice) return null
+    const [start, end] = slice
+    return {
+      length: end - start,
+      attributes: {
+        getPosition: { value: hotspots.positions.subarray(start * 2, end * 2), size: 2 },
+        // Weighted by intensity, never by how many detections there were: the number of
+        // detections depends on which camera was flying.
+        getWeight: { value: hotspots.frp.subarray(start, end), size: 1 },
+      },
+    }
+  }, [hotspots, showField, firstDay, lastDay])
+
+  // The zoom decides how much is glow and how much is dots.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const read = () => setZoom(Math.round(map.getZoom() * 10) / 10)
+    read()
+    map.on('zoom', read)
+    return () => { map.off('zoom', read) }
+  }, [])
 
   // One dot per hotspot, as buffers the card can keep.
   const binary = useMemo(() => (hotspots
@@ -86,12 +130,12 @@ export function MapView({ hotspots, dayRange, selection, topAreas, onMapClick, o
             + `Fire intensity ${h.frp[index].toFixed(1)} megawatts<br/>`
             + `Seen by the ${camera}`,
           style: {
-            background: 'rgba(12, 12, 16, 0.94)',
-            color: '#f4f1ea',
-            font: '13px/1.45 system-ui, sans-serif',
-            padding: '8px 10px',
-            borderRadius: '6px',
-            border: '1px solid rgba(255,255,255,0.18)',
+            background: '#0d0f12',
+            color: '#ece9e2',
+            font: '12.5px/1.45 "IBM Plex Sans", system-ui, sans-serif',
+            padding: '7px 10px',
+            borderRadius: '8px',
+            border: '1px solid rgba(236,233,226,0.3)',
           },
         }
       },
@@ -114,7 +158,23 @@ export function MapView({ hotspots, dayRange, selection, topAreas, onMapClick, o
     const overlay = overlayRef.current
     if (!overlay) return
 
+    const glow = field && field.length > 0 ? fieldShare(zoom) : 0
     const layers = []
+    if (field && glow > 0) {
+      layers.push(new HeatmapLayer({
+        id: 'intensity-field',
+        data: field,
+        aggregation: 'SUM',
+        radiusPixels: 26,
+        intensity: 1.4,
+        threshold: 0.03,
+        colorRange: FIELD_COLOURS,
+        weightsTextureSize: 1024,
+        debounceTimeout: 150,
+        opacity: 0.85 * glow,
+        pickable: false,
+      }))
+    }
     if (binary) {
       layers.push(new ScatterplotLayer({
         id: 'hotspots',
@@ -124,9 +184,11 @@ export function MapView({ hotspots, dayRange, selection, topAreas, onMapClick, o
         radiusMaxPixels: 14,
         stroked: false,
         pickable: true,
-        opacity: 0.92,
+        // Under the glow the dots stay as a faint grain, and take over as it fades.
+        opacity: 0.92 * (1 - 0.8 * glow),
         extensions: [DAY_FILTER],
         filterRange: dayRange,
+        filterSoftRange: softRange,
       }))
     }
 
@@ -137,7 +199,7 @@ export function MapView({ hotspots, dayRange, selection, topAreas, onMapClick, o
         getPolygon: (a) => squareAround(a.lat, a.lon),
         filled: false,
         stroked: true,
-        getLineColor: [120, 220, 255, 220],
+        getLineColor: [246, 243, 238, 210],
         lineWidthUnits: 'pixels',
         getLineWidth: 1.5,
         pickable: false,
@@ -148,7 +210,7 @@ export function MapView({ hotspots, dayRange, selection, topAreas, onMapClick, o
         getPosition: (a) => [a.lon, a.lat + CELL_DEG * 0.7],
         getText: (a) => String(topAreas.indexOf(a) + 1),
         getSize: 13,
-        getColor: [190, 240, 255, 240],
+        getColor: [246, 243, 238, 245],
         outlineColor: [8, 8, 12, 255],
         outlineWidth: 3,
         fontSettings: { sdf: true },
@@ -162,11 +224,11 @@ export function MapView({ hotspots, dayRange, selection, topAreas, onMapClick, o
         data: [selection],
         getPolygon: (s) => circlePolygon(s.lat, s.lon, s.radius_km),
         filled: true,
-        getFillColor: [255, 255, 255, 12],
+        getFillColor: [124, 196, 255, 14],
         stroked: true,
-        getLineColor: [255, 255, 255, 190],
+        getLineColor: [124, 196, 255, 235],
         lineWidthUnits: 'pixels',
-        getLineWidth: 1.5,
+        getLineWidth: 2,
       }))
       layers.push(new ScatterplotLayer<Selection>({
         id: 'selection-centre',
@@ -175,7 +237,7 @@ export function MapView({ hotspots, dayRange, selection, topAreas, onMapClick, o
         radiusUnits: 'pixels',
         getRadius: 5,
         filled: true,
-        getFillColor: [255, 255, 255, 230],
+        getFillColor: [124, 196, 255, 255],
         stroked: true,
         getLineColor: [10, 10, 14, 255],
         lineWidthUnits: 'pixels',
@@ -184,7 +246,7 @@ export function MapView({ hotspots, dayRange, selection, topAreas, onMapClick, o
     }
 
     overlay.setProps({ layers })
-  }, [binary, dayRange, selection, topAreas])
+  }, [binary, field, zoom, dayRange, softRange, selection, topAreas])
 
   return <div ref={container} className="map" role="application" aria-label="Map of fire detections in Quebec" />
 }

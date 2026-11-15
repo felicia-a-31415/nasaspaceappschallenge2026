@@ -26,7 +26,7 @@ export function YearChart({ years }: { years: StatsYear[] }) {
 
   return (
     <figure className="year-chart">
-      <figcaption className="small muted">Fire detections each year</figcaption>
+      <figcaption className="eyebrow">Fire detections each year</figcaption>
       <svg viewBox={`0 -14 ${WIDTH} ${HEIGHT + 28}`} role="img" aria-label={label(groups)}>
         {groups.map((group, index) => {
           const width = (group.rows.length / slots) * spare

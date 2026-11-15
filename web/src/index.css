@@ -1,394 +1,97 @@
-/* Dark surfaces so the fire dots carry the colour. Text on every surface is kept at
-   or above 4.5:1 contrast. Laid out for a laptop on a projector, and it must not
-   break in a narrow window. */
+/* A survey instrument, not a dashboard. The map is the page. A few opaque cards sit on
+   it: a search box top left, a small card of findings top right that opens into the full
+   panel, the time line along the bottom, the key in the corner. They are flat and matte,
+   with soft corners and hairline rules; nothing blurs or glows.
+
+   Three typefaces with three jobs. Plex Sans is the interface. Plex Mono is anything
+   read off an instrument: dates, coordinates, ticks, labels. Plex Serif is kept for one
+   thing only, the corrected sentence, so the most important line on the page is the
+   only one that looks like it.
+
+   Colour is rationed. The warm ramp belongs to the fire data. One cool blue marks what
+   the user has chosen: the period, the circle, keyboard focus. Amber is the February
+   2012 notice and nothing else.
+
+   Text is at or above 4.5:1 contrast everywhere. Laid out for a projector at about
+   1440 by 900; it must not break in a narrow window or at 150% zoom. */
 
 :root {
-  --ink: #f6f3ee;          /* 15:1 on --panel */
-  --ink-dim: #c3bfb7;      /* 8:1 on --panel  */
-  --panel: #111115;
-  --panel-edge: rgba(255, 255, 255, 0.14);
-  --raise: #1c1c22;
-  --accent: #ffb547;
-  --accent-ink: #1a1206;
-  --estimated: #8ab4ff;
-  --warn: #ffd27d;
-  --radius: 10px;
-  --side-w: 348px;
-  --timebar-h: 120px;
-  --shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
+  --bg: #0d0f12;
+  --bg-2: #15181c;
+  --ink: #ece9e2;            /* 15.6:1 on --bg */
+  --ink-2: #b6b3ac;          /*  9.0:1 */
+  --ink-3: #8d8b85;          /*  5.6:1, ticks and labels only */
+  --rule: rgba(236, 233, 226, 0.13);
+  --rule-2: rgba(236, 233, 226, 0.3);
+  --accent: #6cc0ff;         /*  9.7:1 on --bg */
+  --warn: #f0c36a;           /* 11.5:1 on --bg */
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --serif: 'IBM Plex Serif', 'Iowan Old Style', Georgia, serif;
+  --card-w: 340px;
+  --legend-w: 236px;
+  --timebar-h: 118px;
+  --pad: 20px;
+  --gap: 12px;
+  --r: 16px;
+  --r-s: 9px;
+  --shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
 
-html, body, #root {
-  height: 100%;
-  margin: 0;
-}
+html, body, #root { height: 100%; margin: 0; }
 
 body {
-  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
-  background: #07070a;
+  font: 14px/1.5 var(--sans);
+  background: var(--bg);
   color: var(--ink);
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
-h1, h2, h3 { margin: 0; font-weight: 650; letter-spacing: 0.01em; }
+h1, h2, h3, p { margin: 0; }
+h1, h2, h3 { font-weight: 600; }
+b, strong { font-weight: 600; }
 
 button {
-  font: inherit;
+  font: 500 13px/1.2 var(--sans);
   color: var(--ink);
-  background: var(--raise);
-  border: 1px solid var(--panel-edge);
-  border-radius: 8px;
-  padding: 6px 11px;
+  background: transparent;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-s);
+  padding: 7px 12px;
   cursor: pointer;
+  transition: background 0.1s, color 0.1s, border-color 0.1s;
 }
-button:hover { background: #2a2a33; }
-button:focus-visible, input:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+button:hover:not(:disabled) { background: rgba(236, 233, 226, 0.1); border-color: var(--ink-2); }
+button:disabled { cursor: default; opacity: 0.6; }
+button.primary { background: var(--ink); border-color: var(--ink); color: var(--bg); font-weight: 600; }
+button.primary:hover:not(:disabled) { background: #fff; }
+
+button:focus-visible, input:focus-visible, a:focus-visible, summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-}
-button[aria-pressed='true'] {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  font-weight: 650;
 }
 
 a { color: var(--accent); }
 
-/* --- shell --------------------------------------------------------------- */
+.muted { color: var(--ink-2); }
+.small { font-size: 12.5px; line-height: 1.5; }
 
-.app { position: relative; height: 100%; }
-
-/* MapLibre's own stylesheet sets position: relative on the container and is injected
-   after this file, so the selectors here have to be the more specific ones. */
-.app .map { position: absolute; inset: 0; }
-
-.panel-surface {
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--panel-edge);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-}
-
-.topbar {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 3;
+/* A label, set like the lettering on an instrument. */
+.eyebrow, .side h3, .popover legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
-  align-items: flex-start;
-  max-width: calc(100% - var(--side-w) - 36px);
-}
-
-.brand { padding: 9px 13px; }
-.brand h1 { font-size: 15px; }
-.brand p { margin: 2px 0 0; font-size: 12px; color: var(--ink-dim); max-width: 42ch; }
-
-.side {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  bottom: 12px;
-  z-index: 3;
-  width: var(--side-w);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.timebar {
-  position: absolute;
-  left: 12px;
-  right: calc(var(--side-w) + 24px);
-  bottom: 12px;
-  z-index: 3;
-  padding: 10px 16px 12px;
-}
-
-.legend {
-  position: absolute;
-  left: 12px;
-  bottom: calc(var(--timebar-h) + 24px);
-  z-index: 3;
-  padding: 10px 12px;
-  width: 252px;
-}
-
-.credits {
-  margin: 8px 0 0;
-  padding-top: 7px;
-  border-top: 1px solid var(--panel-edge);
-  font-size: 11px;
-  line-height: 1.4;
-  color: var(--ink-dim);
-}
-
-.prompt h2 { font-size: 16px; margin-bottom: 6px; }
-.prompt p { margin: 0 0 8px; line-height: 1.45; }
-
-/* --- loading and errors ------------------------------------------------- */
-
-.curtain {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  display: grid;
-  place-items: center;
-  background: rgba(7, 7, 10, 0.82);
-  text-align: center;
-  padding: 24px;
-}
-
-.curtain-card { padding: 22px 26px; max-width: 460px; }
-.curtain-card code {
-  display: block;
-  margin-top: 10px;
-  padding: 8px;
-  background: #000;
-  border-radius: 6px;
-  font-size: 12px;
-  overflow-x: auto;
-}
-
-.spinner {
-  width: 26px;
-  height: 26px;
-  margin: 0 auto 12px;
-  border: 3px solid var(--panel-edge);
-  border-top-color: var(--accent);
-  border-radius: 50%;
-  animation: spin 0.9s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .spinner { animation-duration: 3s; } }
-
-.notice {
-  font-size: 12px;
-  color: var(--warn);
-  display: flex;
-  gap: 7px;
-  align-items: flex-start;
-}
-
-.muted { color: var(--ink-dim); }
-.small { font-size: 12px; }
-
-@media (max-width: 1180px) {
-  :root { --side-w: 300px; }
-}
-
-@media (max-width: 880px) {
-  :root { --side-w: 0px; }
-  /* No room beside the map: the panel becomes a sheet between the search box and the
-     time bar, so both stay reachable. */
-  .side {
-    width: calc(100% - 24px);
-    top: auto;
-    bottom: calc(var(--timebar-h) + 24px);
-    max-height: 44%;
-  }
-  .topbar { max-width: calc(100% - 24px); }
-  .timebar { right: 12px; }
-  .legend, .app .maplibregl-ctrl-bottom-left { display: none; }
-}
-
-/* MapLibre's own controls, repainted for the dark page and lifted clear of the time bar. */
-.app .maplibregl-ctrl-bottom-left {
-  left: 276px;
-  bottom: calc(var(--timebar-h) + 24px);
-}
-.app .maplibregl-ctrl-group {
-  background: var(--panel);
-  border: 1px solid var(--panel-edge);
-  box-shadow: var(--shadow);
-}
-.app .maplibregl-ctrl-group button + button { border-top: 1px solid var(--panel-edge); }
-.app .maplibregl-ctrl-group button span { filter: invert(1); }
-.app .maplibregl-ctrl-attrib,
-.app .maplibregl-ctrl-attrib.maplibregl-compact {
-  font-size: 11px;
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
-  color: var(--ink-dim);
-}
-.app .maplibregl-ctrl-attrib a { color: var(--ink-dim); }
-.app .maplibregl-ctrl-attrib-button { filter: invert(1); }
-.app .maplibregl-ctrl .maplibregl-ctrl-scale,
-.app .maplibregl-ctrl-scale {
-  background: color-mix(in srgb, var(--panel) 80%, transparent);
-  border-color: var(--panel-edge);
-  color: var(--ink);
-}
-
-/* --- legend -------------------------------------------------------------- */
-
-.legend-title { font-size: 13px; }
-
-.legend-bar {
-  height: 12px;
-  margin: 8px 0 4px;
-  border-radius: 3px;
-  border: 1px solid var(--panel-edge);
-}
-
-.legend-ticks {
-  position: relative;
-  height: 15px;
-  font-size: 11px;
-  color: var(--ink-dim);
-}
-.legend-ticks span {
-  position: absolute;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-.legend-ticks span:first-child { transform: none; }
-.legend-ticks span:last-child { transform: translateX(-100%); }
-
-.legend-ends {
-  display: flex;
-  justify-content: space-between;
-  margin: 2px 0 0;
-  font-size: 11px;
-  color: var(--ink);
-}
-
-.legend-note { margin: 6px 0 0; line-height: 1.35; }
-
-/* --- time bar ------------------------------------------------------------ */
-
-.timebar-head {
-  display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 4px 10px;
+  font: 500 11px/1.45 var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-3);
 }
-
-.play { min-width: 92px; font-weight: 600; }
-
-.speeds { display: flex; gap: 4px; }
-.speeds button { padding: 5px 9px; font-size: 13px; }
-
-.export { font-size: 13px; padding: 5px 10px; }
-
-.warn-inline { color: var(--warn); }
-
-.readout {
-  margin: 0 0 0 auto;
-  font-size: 22px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
-  font-variant-numeric: tabular-nums;
-}
-
-.slider {
-  position: relative;
-  height: 30px;
-  margin: 10px 2px 0;
-}
-
-.slider-track,
-.slider-fill {
-  position: absolute;
-  top: 12px;
-  height: 6px;
-  border-radius: 3px;
-}
-.slider-track { left: 0; right: 0; background: #33333d; }
-.slider-fill { background: var(--accent); }
-.slider.is-playing .slider-fill { background: var(--accent); opacity: 0.85; }
-
-.slider-switch {
-  position: absolute;
-  top: 4px;
-  width: 2px;
-  height: 22px;
-  background: var(--estimated);
-  transform: translateX(-1px);
-}
-.slider-switch span {
-  position: absolute;
-  top: -15px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 10px;
-  color: var(--estimated);
-  white-space: nowrap;
-}
-
-.slider-input {
-  position: absolute;
-  left: -2px;
-  right: -2px;
-  top: 6px;
-  width: calc(100% + 4px);
-  height: 18px;
-  margin: 0;
-  background: none;
-  appearance: none;
-  -webkit-appearance: none;
-  pointer-events: none;
-}
-.slider-input::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
-  pointer-events: auto;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--ink);
-  border: 2px solid #15151a;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
-  cursor: grab;
-}
-.slider-input::-moz-range-thumb {
-  pointer-events: auto;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--ink);
-  border: 2px solid #15151a;
-  cursor: grab;
-}
-.slider-input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-.slider-ends {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 2px;
-}
-
-.timebar .notice { margin: 8px 0 0; }
-
-/* --- search -------------------------------------------------------------- */
-
-.search { padding: 9px 11px; }
-
-.search form { display: flex; gap: 6px; }
-
-.search input {
-  width: 232px;
-  padding: 6px 9px;
-  font: inherit;
-  color: var(--ink);
-  background: #0b0b0e;
-  border: 1px solid var(--panel-edge);
-  border-radius: 8px;
-}
-.search input::placeholder { color: #8b8880; }
-
-.radii { display: flex; gap: 5px; margin-top: 7px; }
-.radii button { padding: 5px 10px; font-size: 13px; }
-
-.search-message { margin: 7px 0 0; color: var(--warn); max-width: 34ch; }
-.search-hint { margin: 6px 0 0; }
 
 .visually-hidden {
   position: absolute;
@@ -399,161 +102,782 @@ a { color: var(--accent); }
   white-space: nowrap;
 }
 
-/* --- yearly chart -------------------------------------------------------- */
+/* A row of choices in one ruled box. The chosen one is inked in. */
+.seg { display: inline-flex; overflow: hidden; border: 1px solid var(--rule-2); border-radius: var(--r-s); }
+.seg button {
+  padding: 6px 11px;
+  border: 0;
+  border-radius: 0;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.seg button + button { border-left: 1px solid var(--rule-2); }
+.seg button[aria-pressed='true'] { background: var(--ink); color: var(--bg); font-weight: 600; }
+.seg button[aria-pressed='true']:hover { background: var(--ink); }
 
-.year-chart { margin: 0; }
-.year-chart svg { width: 100%; height: auto; margin-top: 4px; overflow: visible; }
+/* --- shell --------------------------------------------------------------- */
 
-.bar-older { fill: #b07bd4; }
-.bar-newer { fill: var(--accent); }
+.app { position: relative; height: 100%; }
 
-.year-chart .axis { font-size: 9px; fill: var(--ink-dim); }
-.year-chart .camera { fill: var(--ink); }
-.year-chart .break { stroke: var(--panel-edge); stroke-width: 1; stroke-dasharray: 2 3; }
-.chart-note { margin: 6px 0 0; line-height: 1.35; }
+/* MapLibre's own stylesheet sets position: relative on the container and is injected
+   after this file, so the selectors here have to be the more specific ones. */
+.app .map { position: absolute; inset: 0; }
 
-/* --- statistics panel ---------------------------------------------------- */
+/* The few things that do sit over the map: a menu, the loading card. */
+.surface { background: var(--bg); border: 1px solid var(--rule-2); border-radius: var(--r); box-shadow: var(--shadow); }
 
-.stats { display: flex; flex-direction: column; gap: 12px; }
+/* --- search and the controls beside it, top left ------------------------- */
 
-.stats-head h2 { font-size: 17px; }
-.stats-head p { margin: 3px 0 0; }
-
-.headline {
-  margin: 0;
-  font-size: 17px;
-  line-height: 1.4;
-  font-weight: 600;
+.topleft {
+  position: absolute;
+  top: var(--gap);
+  left: var(--gap);
+  z-index: 4;
+  max-width: calc(100% - var(--card-w) - 3 * var(--gap));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px;
 }
 
-.note-box, .estimated-box, .warn-box {
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  line-height: 1.4;
+.searchbox { position: relative; width: 430px; max-width: 100%; }
+.searchbox form {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 5px 0 16px;
+  background: var(--bg);
+  border: 1px solid var(--rule-2);
+  border-radius: 23px;
+  box-shadow: var(--shadow);
 }
-.note-box { background: rgba(138, 180, 255, 0.14); color: #d6e4ff; }
-.estimated-box { background: rgba(138, 180, 255, 0.1); color: var(--estimated); }
-.warn-box { background: rgba(255, 150, 120, 0.16); color: #ffd3c6; }
+.searchbox form:focus-within { border-color: var(--ink-2); }
+/* Open, the box and its list are one shape. */
+.searchbox.is-open form { border-radius: 23px 23px 0 0; border-bottom-color: var(--rule); }
 
+/* The one place the fire colours appear in the chrome: a single ember. */
+.mark {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fcffa4, #f37819 55%, #932667);
+}
+.searchbox h1 {
+  flex: none;
+  padding-right: 12px;
+  border-right: 1px solid var(--rule-2);
+  font-size: 14px;
+  line-height: 22px;
+  white-space: nowrap;
+}
+.searchbox input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  font: 400 14px/1.2 var(--sans);
+  color: var(--ink);
+  background: none;
+  border: 0;
+  outline: none;
+}
+.searchbox input::placeholder { color: var(--ink-3); }
+.search-go {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ink-2);
+}
+.search-go:hover:not(:disabled) { color: var(--ink); }
+.search-busy {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--rule-2);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.suggest {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 6px 0 8px;
+  list-style: none;
+  background: var(--bg);
+  border: 1px solid var(--rule-2);
+  border-top: 0;
+  border-radius: 0 0 20px 20px;
+  box-shadow: var(--shadow);
+  clip-path: inset(0 -40px -40px -40px);
+}
+.suggest li {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 8px 18px;
+  cursor: pointer;
+}
+.suggest li[aria-selected='true'] { background: var(--bg-2); }
+.suggest svg { flex: none; color: var(--ink-3); }
+.suggest span { display: flex; flex-direction: column; min-width: 0; }
+.suggest b { font-weight: 500; font-size: 14px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggest small { font-size: 12px; line-height: 1.3; color: var(--ink-2); }
+
+.search-message {
+  margin-top: 8px;
+  padding: 9px 14px;
+  background: var(--bg);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-s);
+  color: var(--warn);
+}
+
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 46px; }
+.chips .seg, .chips > button, .copy-link input { background: var(--bg); box-shadow: var(--shadow); }
+.copy-link { display: contents; }
+.copy-link input {
+  flex-basis: 100%;
+  padding: 7px 10px;
+  font: 400 12px/1.2 var(--mono);
+  color: var(--ink);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-s);
+}
+
+/* --- the key, bottom left corner ------------------------------------------ */
+
+.legend {
+  position: absolute;
+  left: var(--gap);
+  bottom: calc(var(--timebar-h) + 2 * var(--gap));
+  z-index: 3;
+  width: var(--legend-w);
+  padding: 14px 16px 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: var(--bg);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+}
+.legend .eyebrow { color: var(--ink); }
+.legend .unit { color: var(--ink-3); text-transform: none; letter-spacing: 0; }
+.legend-bar { height: 7px; margin-top: 4px; border-radius: 4px; }
+
+.legend-ticks {
+  position: relative;
+  height: 33px;
+  font: 400 11px/1 var(--mono);
+  color: var(--ink-2);
+}
+.legend-ticks span {
+  position: absolute;
+  top: 0;
+  height: 33px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.legend-ticks span:first-child { transform: none; align-items: flex-start; }
+.legend-ticks span:last-child { transform: translateX(-100%); align-items: flex-end; }
+/* The sample dots are the size the map draws them, so size is in the key too. */
+.legend-ticks i { display: block; flex: none; margin: 5px 0; border-radius: 50%; }
+
+.legend-ends { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--ink-2); }
+
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  padding-top: 9px;
+  border-top: 1px solid var(--rule);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+.switch input { accent-color: var(--ink); width: 13px; height: 13px; margin: 0; }
+
+/* --- the card of findings, top right -------------------------------------- */
+
+/* Small by default: the place, the corrected sentence, two figures. "More detail"
+   opens it into the full panel. */
+.side {
+  --pad: 18px;
+  position: absolute;
+  top: var(--gap);
+  right: var(--gap);
+  z-index: 3;
+  width: var(--card-w);
+  max-height: calc(100% - var(--timebar-h) - 3 * var(--gap));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
+  transition: width 0.26s var(--ease);
+}
+.side.is-expanded { --pad: 22px; width: 396px; }
+
+/* A new place is on its way: a line runs along the top of the card. */
+.side::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  width: 38%;
+  height: 2px;
+  background: var(--accent);
+  opacity: 0;
+  transform: translateX(-100%);
+}
+.side.is-pending::before { opacity: 1; animation: sweep 0.9s var(--ease) infinite; }
+@keyframes sweep { to { transform: translateX(270%); } }
+
+.side-scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--pad);
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad);
+  scrollbar-width: thin;
+  scrollbar-color: var(--rule-2) transparent;
+}
+
+.side-toggle {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  border-radius: 0;
+  font: 500 11px/1.2 var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.side-toggle:hover:not(:disabled) { color: var(--ink); }
+
+/* One entrance for the whole answer. A new period on the same place only dims it. */
+.panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pad);
+  transition: opacity 0.15s;
+}
+.panel-body.is-pending { opacity: 0.45; }
+@keyframes arrive {
+  from { opacity: 0; transform: translateY(10px); filter: blur(3px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+/* The pieces follow one another in, top to bottom. */
+.panel-body > * { animation: arrive 0.36s var(--ease) both; }
+.panel-body > :nth-child(2) { animation-delay: 0.05s; }
+.panel-body > :nth-child(3) { animation-delay: 0.1s; }
+.panel-body > :nth-child(4) { animation-delay: 0.15s; }
+.panel-body > :nth-child(n + 5) { animation-delay: 0.2s; }
+
+.panel-body > section,
+.panel-body > details,
+.side-scroll > section {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rule);
+}
+
+.place h2 { font-size: 21px; line-height: 1.2; letter-spacing: -0.01em; margin: 3px 0 4px; }
+.place .small { font: 400 12px/1.4 var(--mono); }
+
+.prompt { display: flex; flex-direction: column; gap: 9px; }
+.prompt h2 { font-size: 21px; letter-spacing: -0.01em; }
+
+/* The corrected sentence is the most important thing on the page, and the only serif. */
+.panel-body > section.finding { border-top: 2px solid var(--ink); padding-top: 14px; }
+.finding .headline {
+  font: 500 25px/1.24 var(--serif);
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+  margin: 3px 0 2px;
+}
+.finding .headline.is-empty { font: 400 16px/1.45 var(--sans); letter-spacing: 0; color: var(--ink-2); }
+.panel-body > section.finding.is-demoted { border-top: 1px solid var(--rule); padding-top: 18px; }
+.finding.is-demoted .headline { font-size: 17px; line-height: 1.35; letter-spacing: 0; }
+
+/* What kind of number follows. The word carries it; the box only repeats it. */
+.kind {
+  display: inline-block;
+  padding: 0 6px;
+  border: 1px solid var(--ink-3);
+  border-radius: 5px;
+  font: 500 10.5px/15px var(--mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.kind-estimate { border-style: dashed; }
+.kind-corrected { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+.kind-line { color: var(--ink-2); }
+.kind-line .kind { margin-right: 5px; }
+
+.note-box, .warn-box { border-radius: 0 var(--r-s) var(--r-s) 0; padding: 9px 12px; line-height: 1.45; border-left: 2px solid var(--ink-3); background: var(--bg-2); }
+.warn-box { border-left-color: var(--warn); }
+
+/* Four figures, ruled like a table. */
 .figures {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 12px;
-  margin: 0;
+  margin: 2px 0;
+  border-top: 1px solid var(--rule);
 }
-.figures dt { font-size: 12px; color: var(--ink-dim); }
+.figures > div { padding: 10px 0 11px; border-bottom: 1px solid var(--rule); }
+.figures > div:nth-child(odd) { padding-right: 14px; border-right: 1px solid var(--rule); }
+.figures > div:nth-child(even) { padding-left: 14px; }
+.figures dt { font-size: 12.5px; color: var(--ink-2); }
 .figures dd {
   margin: 1px 0 0;
-  font-size: 16px;
+  font-size: 20px;
+  line-height: 1.25;
   font-weight: 600;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
+.figures .sub { display: block; font: 400 11.5px/1.4 var(--mono); letter-spacing: 0; color: var(--ink-2); }
 
-.figures-note { margin: -2px 0 0; line-height: 1.35; }
+.quiet-answer { font-size: 15px; }
+.this-year { line-height: 1.5; }
 
-.compare-note { margin: -6px 0 0; line-height: 1.4; }
+.history summary { cursor: pointer; font-size: 13px; }
 
-.peak-count { display: block; font-weight: 400; }
+/* The small card keeps the same pieces, a size down. */
+.side:not(.is-expanded) .finding .headline { font-size: 21px; }
+.side:not(.is-expanded) .finding.is-demoted .headline { font-size: 15.5px; }
+.side:not(.is-expanded) .place h2 { font-size: 18px; }
+.side:not(.is-expanded) .panel-body > section { padding-top: 14px; }
+.side:not(.is-expanded) .figures { margin-bottom: -4px; }
+.side:not(.is-expanded) .figures > div { border-bottom: 0; }
+.side:not(.is-expanded) .figures dd { font-size: 17px; }
+.side:not(.is-expanded) .reasons { display: none; }
 
-.this-year { margin: 0; line-height: 1.45; }
+/* --- the on-shift view --------------------------------------------------- */
+
+/* Calm on purpose: no red, nothing flashing. It states a limit, not an emergency. */
+.record-banner {
+  position: sticky;
+  top: calc(-1 * var(--pad));
+  z-index: 1;
+  margin: calc(-1 * var(--pad)) calc(-1 * var(--pad)) 0;
+  padding: 16px var(--pad) 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--ink);
+  color: #33353a;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.record-banner strong { font-size: 15px; color: var(--bg); }
+.record-banner b { color: var(--bg); }
+
+.presets { display: flex; flex-direction: column; gap: 8px; }
+.presets .seg { align-self: flex-start; flex-wrap: wrap; }
+
+/* --- outlook ------------------------------------------------------------- */
+
+.level { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; }
+.level-word { font-size: 18px; font-weight: 600; letter-spacing: -0.005em; }
+.level > .small { grid-column: 2; }
+/* One, two or three bars filled. It repeats the words; it is not a warning light. */
+.level-mark { display: inline-flex; align-items: flex-end; gap: 2px; height: 16px; }
+.level-mark i { width: 4px; border-radius: 1px; background: rgba(236, 233, 226, 0.22); }
+.level-mark i:nth-child(1) { height: 6px; }
+.level-mark i:nth-child(2) { height: 11px; }
+.level-mark i:nth-child(3) { height: 16px; }
+.level-low .level-mark i:nth-child(-n + 1),
+.level-usual .level-mark i:nth-child(-n + 2),
+.level-high .level-mark i { background: var(--ink); }
+
+.reasons { margin: 0; padding-left: 18px; }
+.reasons li { margin-bottom: 4px; line-height: 1.45; }
+
+.panel-body > section.outlook.is-raised { border-top: 2px solid var(--ink); padding-top: 14px; }
+.outlook.is-raised .level-word { font-size: 22px; }
+
+/* --- yearly chart -------------------------------------------------------- */
+
+.year-chart { margin: 0; }
+.year-chart svg { width: 100%; height: auto; margin-top: 8px; overflow: visible; }
+/* Two cameras, told apart by their labels and the break between them; tone is extra. */
+.bar-older { fill: #807d92; }
+.bar-newer { fill: var(--ink); }
+.year-chart .axis { font: 400 8.5px var(--mono); fill: var(--ink-2); }
+.year-chart .camera { fill: var(--ink); }
+.year-chart .break { stroke: var(--warn); stroke-width: 1; stroke-dasharray: 2 3; }
+.chart-note { margin-top: 6px; }
 
 /* --- downloads, top areas, weather --------------------------------------- */
 
-.downloads h3, .top-areas h3, .weather h3 {
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-dim);
-  margin-bottom: 8px;
-}
-
-.download-row { display: flex; flex-wrap: wrap; gap: 6px; }
-
+.download-row { display: flex; flex-wrap: wrap; gap: 8px; }
 .download-link {
   display: inline-block;
-  padding: 6px 11px;
-  border: 1px solid var(--panel-edge);
-  border-radius: 8px;
-  background: var(--raise);
+  padding: 7px 12px;
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-s);
   color: var(--ink);
   text-decoration: none;
-  font-size: 14px;
+  font: 500 13px/1.2 var(--sans);
 }
-.download-link:hover { background: #2a2a33; }
+.download-link:hover { background: rgba(236, 233, 226, 0.1); border-color: var(--ink-2); }
 
-.downloads p { margin: 8px 0 0; line-height: 1.4; }
-
-.area-list { margin: 0; padding: 0; list-style: none; }
-.area-list li + li { margin-top: 4px; }
+.area-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
 .area-list button {
   display: grid;
-  grid-template-columns: 20px 1fr auto;
+  grid-template-columns: 22px 1fr auto;
   gap: 8px;
   align-items: baseline;
   width: 100%;
   text-align: left;
-  padding: 6px 8px;
-  background: transparent;
-  border-color: transparent;
+  padding: 8px 6px 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 0;
 }
-.area-list button:hover { background: var(--raise); border-color: var(--panel-edge); }
-.area-list .rank { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
-.area-list .where { font-variant-numeric: tabular-nums; }
-.area-list .amount { font-weight: 600; font-variant-numeric: tabular-nums; }
-.top-areas p { margin: 8px 0 0; line-height: 1.4; }
+.area-list button:hover { background: var(--bg-2); }
+.area-list .rank { font: 400 12px var(--mono); color: var(--ink-3); }
+.area-list .where { font: 400 12.5px var(--mono); white-space: nowrap; }
+.area-list .amount { font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.area-list .amount .small { display: block; font: 400 11.5px/1.4 var(--mono); }
 
-.weather-span { margin: 0 0 6px; }
 .weather-row {
   display: grid;
-  grid-template-columns: 62px 1fr 72px;
+  grid-template-columns: 62px 1fr 76px;
   gap: 8px;
   align-items: end;
-  margin-bottom: 5px;
-  font-size: 12px;
+  font-size: 12.5px;
 }
-.weather-name { color: var(--ink-dim); }
-.weather-bars {
-  display: flex;
-  align-items: flex-end;
-  gap: 1px;
-  height: 24px;
+.weather-name { color: var(--ink-2); }
+.weather-bars { display: flex; align-items: flex-end; gap: 1px; height: 24px; border-bottom: 1px solid var(--rule-2); }
+.weather-bar { flex: 1 1 auto; min-width: 1px; background: var(--ink-3); }
+.weather-bar.is-missing {
+  background: repeating-linear-gradient(45deg, #3a3c42, #3a3c42 2px, transparent 2px, transparent 4px);
 }
-.weather-bar {
-  flex: 1 1 auto;
-  min-width: 1px;
-  background: #5b8dd6;
-  border-radius: 1px;
-}
-.weather-bar.is-missing { background: repeating-linear-gradient(45deg, #33333d, #33333d 2px, transparent 2px, transparent 4px); }
-.weather-top { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
-.weather p:last-child { margin: 8px 0 0; line-height: 1.4; }
+.weather-top { text-align: right; font: 400 12px var(--mono); }
 
-/* --- outlook ------------------------------------------------------------- */
+/* --- skeletons ----------------------------------------------------------- */
 
-.outlook h3 {
-  font-size: 13px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-dim);
-  margin-bottom: 8px;
+.skeleton { display: flex; flex-direction: column; gap: var(--pad); }
+.sk-group { display: flex; flex-direction: column; gap: 9px; }
+.sk-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+.sk {
+  display: block;
+  width: 100%;
+  background: linear-gradient(90deg, var(--bg-2) 25%, rgba(236, 233, 226, 0.13) 50%, var(--bg-2) 75%);
+  background-size: 300% 100%;
+  animation: shimmer 1.4s linear infinite;
 }
+.sk-line { height: 11px; }
+.sk-title { height: 23px; }
+.sk-head { height: 26px; }
+.sk-figure { height: 44px; }
+@keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
-.level {
+/* --- the time line, docked along the bottom -------------------------------- */
+
+.timedock {
+  position: absolute;
+  left: var(--gap);
+  right: var(--gap);
+  bottom: var(--gap);
+  z-index: 3;
+  padding: 12px 18px 11px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin: 0 0 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border-left: 4px solid var(--ink-dim);
-  background: var(--raise);
+  gap: 8px;
+  background: var(--bg);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r);
+  box-shadow: var(--shadow);
 }
-.level-word { font-weight: 650; font-size: 15px; }
-.level-low { border-left-color: #6fb3ff; }
-.level-usual { border-left-color: #c9c4bb; }
-.level-high { border-left-color: #ff9d4d; }
 
-.reasons { margin: 0; padding-left: 18px; }
-.reasons li { margin-bottom: 5px; line-height: 1.4; }
-.outlook > p:last-child { margin: 6px 0 0; line-height: 1.4; }
+.td-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+
+.play {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--bg);
+  font-size: 11px;
+}
+.play:hover:not(:disabled) { background: #fff; border-color: #fff; }
+
+.readout { flex: none; display: flex; flex-direction: column; gap: 2px; width: 178px; }
+.readout strong { font: 500 15px/1.2 var(--mono); letter-spacing: -0.02em; white-space: nowrap; }
+.readout span { font-size: 11.5px; line-height: 1.2; color: var(--ink-2); white-space: nowrap; }
+
+.export { position: relative; display: flex; align-items: center; gap: 8px; }
+.warn-inline { color: var(--warn); }
+
+.popover {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 14px);
+  z-index: 5;
+  width: 304px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  animation: arrive 0.16s var(--ease) both;
+}
+.popover fieldset { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 6px; }
+.popover legend { padding: 0; margin-bottom: 6px; }
+.popover label { display: flex; align-items: baseline; gap: 8px; font-size: 13px; cursor: pointer; }
+.popover input { accent-color: var(--ink); margin: 0; }
+
+/* The track is a ruler: a baseline, a tick for every year, the months' fire intensity
+   standing on it. One control: the pointer picks whichever handle is nearer. */
+.track {
+  flex: 1 1 300px;
+  min-width: 0;
+  padding: 8px 8px 0;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.track-plot { position: relative; height: 26px; border-bottom: 1px solid var(--ink-3); }
+
+.track-shape { position: absolute; left: 0; bottom: 0; width: 100%; height: 22px; }
+.shape-older { fill: #6c697e; }
+.shape-newer { fill: #8f8d87; }
+
+.track-after {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(135deg, var(--rule), var(--rule) 3px, transparent 3px, transparent 7px);
+}
+
+/* The chosen period: a wash over the shape and a heavy line along the baseline. */
+.track-band {
+  position: absolute;
+  top: 0;
+  bottom: -2px;
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  border-bottom: 3px solid var(--accent);
+  pointer-events: none;
+}
+.track.is-playing .track-band {
+  background: color-mix(in srgb, var(--ink) 12%, transparent);
+  border-bottom-color: var(--ink);
+}
+
+/* February 2012: a dashed line, named in the row of years beneath it. */
+.track-switch {
+  position: absolute;
+  top: -4px;
+  bottom: -6px;
+  width: 0;
+  border-left: 1px dashed var(--warn);
+  pointer-events: none;
+}
+
+.track-head { position: absolute; top: -4px; bottom: -6px; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; }
+
+/* A handle is a small marker riding above the baseline, like the cursor on a slide
+   rule: a tab at the top, a hairline down to the ruler. */
+.handle {
+  position: absolute;
+  top: -10px;
+  bottom: -4px;
+  z-index: 1;
+  width: 20px;
+  padding: 0;
+  transform: translateX(-50%);
+  background: none;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  cursor: ew-resize;
+}
+.handle:hover:not(:disabled) { background: none; }
+.handle::before {
+  content: '';
+  position: absolute;
+  top: 10px;
+  bottom: 2px;
+  left: 9.5px;
+  width: 1px;
+  background: var(--accent);
+}
+.handle::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  border-radius: 50% 50% 50% 0;
+  rotate: -45deg;
+  background: var(--accent);
+  transition: transform 0.1s var(--ease), background 0.1s;
+  transform-origin: 50% 50%;
+}
+.handle:hover::after, .track.is-dragging .handle:focus::after { background: #fff; }
+.handle:focus-visible::after { background: #fff; transform: scale(1.3); }
+
+.track-years { position: relative; height: 22px; margin-top: 1px; }
+.year { position: absolute; top: 0; display: flex; flex-direction: column; align-items: center; transform: translateX(-50%); }
+.year i { width: 1px; height: 4px; background: var(--ink-3); }
+.year.is-labelled i { height: 7px; }
+.year button {
+  margin-top: 1px;
+  padding: 0 3px;
+  border: 0;
+  font: 400 11px/14px var(--mono);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.year button:hover:not(:disabled) { background: var(--bg-2); color: var(--ink); }
+.year.is-switch button { color: var(--warn); }
+.year.is-switch i { background: var(--warn); }
+
+.td-foot { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 24px; }
+.notice { display: flex; gap: 7px; font-size: 12px; line-height: 1.45; color: var(--warn); }
+.notice > span:first-child { font-size: 9px; line-height: 17px; }
+.credits { font: 400 10.5px/1.5 var(--mono); color: var(--ink-3); }
+
+/* --- loading and errors -------------------------------------------------- */
+
+.curtain {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  background: rgba(13, 15, 18, 0.86);
+  text-align: center;
+  padding: 24px;
+}
+.curtain-card { padding: 26px 30px; max-width: 460px; display: flex; flex-direction: column; gap: 6px; }
+.curtain-card h2 { font-size: 17px; }
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  margin: 0 auto 8px;
+  border: 2px solid var(--rule-2);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* --- MapLibre's own controls, redrawn to match ----------------------------- */
+
+.app .maplibregl-ctrl-bottom-left {
+  left: calc(var(--legend-w) + 2 * var(--gap));
+  bottom: calc(var(--timebar-h) + 2 * var(--gap));
+}
+.app .maplibregl-ctrl-bottom-left .maplibregl-ctrl { margin: 8px 0 0; }
+.app .maplibregl-ctrl-group {
+  overflow: hidden;
+  background: var(--bg);
+  border: 1px solid var(--rule-2);
+  border-radius: var(--r-s);
+  box-shadow: none;
+}
+.app .maplibregl-ctrl-group button { border-radius: 0; border: 0; }
+.app .maplibregl-ctrl-group button + button { border-top: 1px solid var(--rule-2); }
+.app .maplibregl-ctrl-group button span { filter: invert(1); }
+.app .maplibregl-ctrl-attrib,
+.app .maplibregl-ctrl-attrib.maplibregl-compact {
+  font: 400 10.5px/1.6 var(--mono);
+  background: var(--bg);
+  color: var(--ink-2);
+  border-radius: var(--r-s);
+}
+.app .maplibregl-ctrl-attrib a { color: var(--ink-2); }
+.app .maplibregl-ctrl-attrib-button { filter: invert(1); border: 0; }
+.app .maplibregl-ctrl .maplibregl-ctrl-scale,
+.app .maplibregl-ctrl-scale {
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  border-color: var(--ink-2);
+  color: var(--ink);
+  font: 400 10.5px/1.6 var(--mono);
+}
+
+/* --- smaller windows ----------------------------------------------------- */
+
+@media (max-width: 1280px) {
+  :root { --card-w: 320px; }
+  .side.is-expanded { width: 360px; }
+  .finding .headline { font-size: 22px; }
+  .readout { width: 160px; }
+}
+
+/* Short windows, including a laptop at 150% zoom: the key gives way to the map. */
+@media (max-height: 640px) {
+  .legend-ends, .legend .switch { display: none; }
+}
+
+@media (max-width: 880px) {
+  /* No room beside the map: search runs across the top, the time line takes its own
+     row, and the card sits above it. */
+  .topleft { right: var(--gap); max-width: none; }
+  .searchbox { width: 100%; }
+  .chips { min-height: 0; }
+  .track { order: 5; flex-basis: 100%; }
+  .readout { width: auto; margin-right: auto; }
+  .side, .side.is-expanded {
+    left: var(--gap);
+    width: auto;
+    top: auto;
+    bottom: calc(var(--timebar-h) + 2 * var(--gap));
+    max-height: 34%;
+  }
+  .side.is-expanded { max-height: calc(100% - var(--timebar-h) - 140px); }
+  .legend, .app .maplibregl-ctrl-bottom-left { display: none; }
+}
+
+@media (max-width: 520px) {
+  .searchbox h1 { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-body > *, .popover, .side::before { animation: none; }
+  .sk { animation: none; }
+  .spinner, .search-busy { animation-duration: 3s; }
+  * { transition: none !important; }
+}

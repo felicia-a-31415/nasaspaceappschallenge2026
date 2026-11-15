@@ -67,6 +67,12 @@ export function formatMonth(month: string): string {
   return `${MONTH_NAMES[m - 1]} ${y}`
 }
 
+/** "2023-06" to "Jun 2023", for places too tight for the full name. */
+export function formatMonthShort(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return `${MONTH_NAMES[m - 1].slice(0, 3)} ${y}`
+}
+
 /** "2026-11-13" to "13 November 2026". */
 export function formatDate(date: string): string {
   const [y, m, d] = date.split('-').map(Number)

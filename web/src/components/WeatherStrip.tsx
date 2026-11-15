@@ -71,7 +71,12 @@ export function WeatherStrip({ state }: { state: QueryState<WeatherResponse> }) 
     return <section className="weather"><h3>Weather</h3><p className="warn-box">{state.detail}</p></section>
   }
   if (state.status !== 'ready') {
-    return <section className="weather"><h3>Weather</h3><p className="muted small">Asking NASA…</p></section>
+    return (
+      <section className="weather">
+        <h3>Weather at this point</h3>
+        <div className="skeleton" role="status" aria-label="Asking NASA for the weather"><i className="sk sk-block" style={{ height: 150 }} /></div>
+      </section>
+    )
   }
   const { days, source } = state.data
   if (!days.length) {
@@ -99,7 +104,7 @@ export function WeatherStrip({ state }: { state: QueryState<WeatherResponse> }) 
       <Row title="Hottest" unit="°C" periods={periods} pick={(p) => p.temp} decimals={1} />
       <Row title="Wind" unit="m/s" periods={periods} pick={(p) => p.wind} decimals={1} />
       <Row title="Humidity" unit="%" periods={periods} pick={(p) => p.humidity} />
-      <p className="small muted">Weather: {source}. The tallest bar in each row is written beside it.</p>
+      <p className="small muted">Weather: {source}. Measured. The tallest bar in each row is written beside it.</p>
     </section>
   )
 }

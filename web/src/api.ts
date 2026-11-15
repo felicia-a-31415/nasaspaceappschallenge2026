@@ -2,7 +2,10 @@
 // Nothing else in the app may call fetch.
 
 import { USE_MOCKS } from './env'
+import { NO_FORECAST } from './forecast'
+import type { Forecast, ForecastRequest } from './forecast'
 import * as mock from './mocks'
+import { forecast as mockForecast } from './mocks/forecast'
 import type {
   AboutResponse, ActivityResponse, HotspotsResponse, OutlookResponse, Selection, StatsResponse,
   TopAreasResponse, WeatherResponse,
@@ -100,6 +103,17 @@ export function getWeather(selection: Selection, signal?: AbortSignal): Promise<
   return USE_MOCKS
     ? mock.weather(selection)
     : get(`/api/weather?${selectionQuery(selection)}`, signal)
+}
+
+// --- reserved: a forecast --------------------------------------------------
+
+/**
+ * Not an endpoint yet. The server offers no forecast and its shape has not been agreed,
+ * so this asks nothing over the network and reports that none is available. When the
+ * backend owner adds one, this is the only function to change.
+ */
+export function getForecast(view: ForecastRequest, _signal?: AbortSignal): Promise<Forecast> {
+  return USE_MOCKS ? mockForecast(view) : Promise.resolve(NO_FORECAST)
 }
 
 // --- downloads: plain links ------------------------------------------------

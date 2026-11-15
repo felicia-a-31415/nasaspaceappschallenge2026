@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Timeline } from '../hooks/useTimeline'
-import { dayToMonth, SWITCH_MONTH } from '../lib/days'
+import { dayToMonth, formatMonthShort, monthEndDay, monthRange, monthStartDay, SWITCH_MONTH } from '../lib/days'
 import { canRecord, recordRun } from '../map/recordRun'
 import { drawFrame } from '../map/videoFrame'
 
@@ -11,39 +11,78 @@ export interface ExportVideoProps {
   getCanvas: () => HTMLCanvasElement | null
 }
 
+type Stretch = 'record' | 'period'
+
+/** Short by default, so the file drops straight into a 30-second submission video. */
+const LENGTHS = [15, 30]
+
 /**
- * Records one full run and saves it as a video file. The frame holds what the viewer sees
- * on the map, with the date, the legend, the 2012 notice and the credits painted in,
- * because overlays drawn as HTML are not part of the canvas.
+ * Records a run and saves it as a video file: the whole record or just the chosen
+ * period, in about 15 or 30 seconds. The frame holds what the viewer sees on the map,
+ * with the date, the legend, the 2012 notice and the credits painted in, because overlays
+ * drawn as HTML are not part of the canvas.
  */
 export function ExportVideo({ timeline, epoch, getCanvas }: ExportVideoProps) {
+  const [open, setOpen] = useState(false)
+  const [stretch, setStretch] = useState<Stretch>('record')
+  const [seconds, setSeconds] = useState(LENGTHS[0])
   const [recording, setRecording] = useState(false)
   const [problem, setProblem] = useState<string | null>(null)
   const live = useRef(timeline)
   live.current = timeline
+  const box = useRef<HTMLDivElement>(null)
+
+  // Click away or press Escape to close the options.
+  useEffect(() => {
+    if (!open) return
+    const away = (event: PointerEvent) => {
+      if (!box.current?.contains(event.target as Node)) setOpen(false)
+    }
+    const key = (event: KeyboardEvent) => { if (event.key === 'Escape') setOpen(false) }
+    document.addEventListener('pointerdown', away)
+    document.addEventListener('keydown', key)
+    return () => {
+      document.removeEventListener('pointerdown', away)
+      document.removeEventListener('keydown', key)
+    }
+  }, [open])
 
   if (!canRecord()) return null
 
+  const { months, monthRange: span, recordLast } = timeline
+  const periodLabel = months.length
+    ? span[0] === span[1]
+      ? formatMonthShort(months[span[0]])
+      : `${formatMonthShort(months[span[0]])} – ${formatMonthShort(months[span[1]])}`
+    : ''
+
   async function start() {
     const canvas = getCanvas()
-    if (!canvas) return
+    if (!canvas || !months.length) return
+    setOpen(false)
     setProblem(null)
     setRecording(true)
-    timeline.replay()
+
+    // The months this video runs across: its own time line is drawn from these.
+    const first = stretch === 'period' ? months[span[0]] : months[0]
+    const last = stretch === 'period' ? months[span[1]] : months[recordLast]
+    const shown = monthRange(first, last)
+    const fromDay = Math.max(timeline.recordStartDay, monthStartDay(epoch, first))
+    const toDay = Math.min(timeline.recordEndDay, monthEndDay(epoch, last))
+    const switchAt = shown.indexOf(SWITCH_MONTH)
+    timeline.playRun({ fromDay, toDay, seconds })
 
     let started = false
     try {
       const video = await recordRun({
         source: canvas,
         drawOverlay: (ctx, width, height) => {
-          const { months, head } = live.current
-          if (!months.length) return
-          const at = months.indexOf(dayToMonth(epoch, head))
+          const { head } = live.current
           drawFrame(ctx, width, height, {
-            month: months[Math.max(0, at)],
-            progress: at / (months.length - 1),
-            switchAt: Math.max(0, months.indexOf(SWITCH_MONTH)) / (months.length - 1),
-            months,
+            month: dayToMonth(epoch, Math.min(toDay, Math.max(fromDay, head))),
+            progress: (head - fromDay) / Math.max(1, toDay - fromDay),
+            switchAt: switchAt > 0 && shown.length > 1 ? switchAt / (shown.length - 1) : null,
+            months: shown,
           })
         },
         isDone: () => {
@@ -54,7 +93,9 @@ export function ExportVideo({ timeline, epoch, getCanvas }: ExportVideoProps) {
       const url = URL.createObjectURL(video)
       const link = document.createElement('a')
       link.href = url
-      link.download = 'quebec-fire-record.webm'
+      link.download = stretch === 'period'
+        ? `quebec-fire-record-${first}-to-${last}.webm`
+        : 'quebec-fire-record.webm'
       link.click()
       URL.revokeObjectURL(url)
     } catch (error) {
@@ -64,21 +105,54 @@ export function ExportVideo({ timeline, epoch, getCanvas }: ExportVideoProps) {
     }
   }
 
+  const run = timeline.run
+  const done = recording && run
+    ? Math.min(1, Math.max(0, (timeline.head - run.fromDay) / Math.max(1, run.toDay - run.fromDay)))
+    : 0
+
   return (
-    <>
-      <button type="button" className="export" onClick={start} disabled={recording}>
-        {recording
-          ? `Recording… ${Math.round(recordedShare(timeline, epoch) * 100)}%`
-          : '⬇ Save video'}
+    <div className="export" ref={box}>
+      <button
+        type="button"
+        className="quiet"
+        onClick={() => setOpen((o) => !o)}
+        disabled={recording}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+      >
+        {recording ? `Recording… ${Math.round(done * 100)}%` : 'Save video'}
       </button>
       {problem && <span className="small warn-inline" role="alert">{problem}</span>}
-    </>
-  )
-}
 
-/** How far through the run the recording is, as a share of the months. */
-function recordedShare(timeline: Timeline, epoch: string): number {
-  if (timeline.months.length < 2) return 0
-  const at = timeline.months.indexOf(dayToMonth(epoch, timeline.head))
-  return Math.max(0, at) / (timeline.months.length - 1)
+      {open && (
+        <div className="popover surface" role="dialog" aria-label="Save a video">
+          <fieldset>
+            <legend>What to record</legend>
+            <label>
+              <input type="radio" name="stretch" checked={stretch === 'record'} onChange={() => setStretch('record')} />
+              The whole record, 2000 to now
+            </label>
+            <label>
+              <input type="radio" name="stretch" checked={stretch === 'period'} onChange={() => setStretch('period')} />
+              Only the chosen period <span className="muted">({periodLabel})</span>
+            </label>
+          </fieldset>
+          <fieldset>
+            <legend>How long</legend>
+            {LENGTHS.map((s) => (
+              <label key={s}>
+                <input type="radio" name="seconds" checked={seconds === s} onChange={() => setSeconds(s)} />
+                About {s} seconds
+              </label>
+            ))}
+          </fieldset>
+          <button type="button" className="primary" onClick={start}>Record and save</button>
+          <p className="small muted">
+            A 1920 × 1080 video file of the map as it is framed now, with the date, legend,
+            2012 notice and credits on every frame. Keep this tab in front while it records.
+          </p>
+        </div>
+      )}
+    </div>
+  )
 }

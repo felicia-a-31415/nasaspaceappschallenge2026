@@ -18,6 +18,36 @@ export function shortName(displayName: string): string {
   return displayName.split(',').slice(0, 2).map((part) => part.trim()).join(', ')
 }
 
+/** One row in the list under the search box while typing. */
+export interface Suggestion {
+  /** Whatever the provider uses to name this place, such as a place id. */
+  id: string
+  title: string
+  /** A second, quieter line: the region or country. */
+  subtitle?: string
+}
+
+/**
+ * Suggestions for a half-typed place name. THIS IS THE SEAM FOR GOOGLE PLACES.
+ *
+ * Nothing is asked today, so the list is empty and the search box offers only "search
+ * for what I typed". To add suggestions, return them from here (the box already waits
+ * 250 ms after the last keystroke, drops stale answers through `signal`, and handles the
+ * list, the keyboard and the screen reader). Nominatim's terms forbid using it for
+ * type-ahead, which is why it is not used here.
+ */
+export async function suggestPlaces(_query: string, _signal?: AbortSignal): Promise<Suggestion[]> {
+  return []
+}
+
+/**
+ * Turn a chosen suggestion into a point on the map. With Google this becomes a place
+ * details lookup by `id`; until then the name is simply searched for.
+ */
+export function resolveSuggestion(suggestion: Suggestion, signal?: AbortSignal): Promise<Place | null> {
+  return searchPlace([suggestion.title, suggestion.subtitle].filter(Boolean).join(', '), signal)
+}
+
 let lastCall = 0
 
 /** Null when nothing matched. Throws when the service itself fails. */
