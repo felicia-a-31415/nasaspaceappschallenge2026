@@ -183,7 +183,7 @@ Steps 1 to 3 are the challenge's minimum. If time runs short, cuts are made from
 - Outside Canada the correction is borrowed from Canada and untested there.
 - November 2000 to June 2002 had one MODIS satellite; those months are flagged.
 
-## Calls made by Claude, open to change
+## Calls made during design, open to change
 
 - A region is a click plus a radius of 50, 100 or 200 km (default 100).
 - Full-screen map with a floating card (layout A from the earlier mockups).
