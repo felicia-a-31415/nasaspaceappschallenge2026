@@ -114,13 +114,13 @@ export function ExportVideo({ timeline, epoch, getCanvas }: ExportVideoProps) {
     <div className="export" ref={box}>
       <button
         type="button"
-        className="quiet"
+        className="quiet export-btn"
         onClick={() => setOpen((o) => !o)}
         disabled={recording}
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        {recording ? `Recording ${Math.round(done * 100)}%` : 'Export WebM'}
+        {recording ? `Recording ${Math.round(done * 100)}%` : 'Export'}
       </button>
       {problem && <span className="small warn-inline" role="alert">{problem}</span>}
 

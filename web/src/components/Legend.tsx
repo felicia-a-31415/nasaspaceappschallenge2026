@@ -8,13 +8,54 @@ import { FIELD_GONE_ZOOM } from '../map/field'
 import { FRP_CLASS_COLOURS } from '../map/frpCells'
 import type { Encoding } from './MapControls'
 
-const GRADIENT = Array.from({ length: 11 }, (_, i) => {
-  const f = i / 10
-  return `${cssColour(rampColour(f))} ${(f * 100).toFixed(0)}%`
-}).join(', ')
+function gradient(colourAt: (f: number) => [number, number, number], stops = 16): string {
+  return Array.from({ length: stops + 1 }, (_, i) => {
+    const f = i / stops
+    return `${cssColour(colourAt(f))} ${(f * 100).toFixed(1)}%`
+  }).join(', ')
+}
 
-const FRP_CELL_BOUNDS = ['10', '100', '1 k', '10 k', '100 k']
-const Z_BOUNDS = Z_BREAKS.map((z) => (z > 0 ? `+${z}` : String(z).replace('-', '−')))
+/**
+ * A smooth gradient through a set of class colours: each colour sits at the centre of
+ * its class, and the bar blends between neighbours. Same palette the map uses.
+ */
+function classGradient(colours: [number, number, number][]): string {
+  const n = colours.length
+  return colours.map((c, i) => `${cssColour(c)} ${(((i + 0.5) / n) * 100).toFixed(1)}%`).join(', ')
+}
+
+/** Labels at the class boundaries, the same places the old stepped legend put them. */
+function boundaryTicks(labels: string[], classes: number): Tick[] {
+  return labels.map((label, i) => ({ at: (i + 1) / classes, label }))
+}
+
+const FRP_GRADIENT = gradient(rampColour)
+const Z_GRADIENT = classGradient(Z_COLOURS)
+const FRP_CELL_GRADIENT = classGradient(FRP_CLASS_COLOURS)
+
+const Z_TICKS = boundaryTicks(Z_BREAKS.map((z) => (z > 0 ? `+${z}` : String(z).replace('-', '−'))), Z_COLOURS.length)
+const FRP_CELL_TICKS = boundaryTicks(['10', '100', '1 k', '10 k', '100 k'], FRP_CLASS_COLOURS.length)
+const FRP_TICKS: Tick[] = LEGEND_TICKS.map((mw) => ({
+  at: intensityFraction(mw),
+  label: mw === TOP_INTENSITY_MW ? `≥${mw}` : String(mw),
+}))
+
+interface Tick { at: number; label: string }
+
+/** A continuous colour bar with tick marks and labels beneath, and a caption under those. */
+function ColourBar({ background, ticks, caption }: { background: string; ticks: Tick[]; caption?: string }) {
+  return (
+    <div className="colourbar">
+      <div className="colourbar-bar" style={{ background: `linear-gradient(90deg, ${background})` }} />
+      <div className="colourbar-ticks">
+        {ticks.map((t) => (
+          <span key={t.label} style={{ left: `${t.at * 100}%` }}>{t.label}</span>
+        ))}
+      </div>
+      {caption && <p className="colourbar-caption">{caption}</p>}
+    </div>
+  )
+}
 
 export interface LegendProps {
   map: MapLibreMap | null
@@ -23,20 +64,6 @@ export interface LegendProps {
   anomaly: Anomaly | null
   /** ΣFRP grid cells are drawn when zoomed out. */
   cells: boolean
-}
-
-/** A stepped scale: one swatch per class, the class boundaries written between them. */
-function Steps({ colours, bounds }: { colours: [number, number, number][]; bounds: string[] }) {
-  return (
-    <>
-      <div className="legend-steps">
-        {colours.map((colour, i) => <i key={i} style={{ background: cssColour(colour) }} />)}
-      </div>
-      <div className="legend-bounds">
-        {bounds.map((label, i) => <span key={label} style={{ left: `${((i + 1) / colours.length) * 100}%` }}>{label}</span>)}
-      </div>
-    </>
-  )
 }
 
 /** One scale, for whatever the map is drawing right now, with its unit. Nothing else. */
@@ -58,7 +85,7 @@ export function Legend({ map, encoding, anomaly, cells }: LegendProps) {
         {anomaly?.ok
           ? (
             <>
-              <Steps colours={Z_COLOURS} bounds={Z_BOUNDS} />
+              <ColourBar background={Z_GRADIENT} ticks={Z_TICKS} caption="Below normal ← → Above normal" />
               <p className="legend-foot">vs. same months, {anomaly.era} {Math.min(...anomaly.years)}–{Math.max(...anomaly.years)}</p>
             </>
           )
@@ -70,21 +97,16 @@ export function Legend({ map, encoding, anomaly, cells }: LegendProps) {
   if (cells && zoom < FIELD_GONE_ZOOM) {
     return (
       <div className="legend">
-        <p className="legend-title">Summed FRP <span>MW per 0.1° cell</span></p>
-        <Steps colours={FRP_CLASS_COLOURS} bounds={FRP_CELL_BOUNDS} />
+        <p className="legend-title">Summed fire intensity <span>MW per 0.1° cell</span></p>
+        <ColourBar background={FRP_CELL_GRADIENT} ticks={FRP_CELL_TICKS} />
       </div>
     )
   }
 
   return (
     <div className="legend">
-      <p className="legend-title">FRP <span>MW per detection</span></p>
-      <div className="legend-bar" style={{ background: `linear-gradient(90deg, ${GRADIENT})` }} />
-      <div className="legend-bounds">
-        {LEGEND_TICKS.map((mw) => (
-          <span key={mw} style={{ left: `${intensityFraction(mw) * 100}%` }}>{mw === TOP_INTENSITY_MW ? `≥${mw}` : mw}</span>
-        ))}
-      </div>
+      <p className="legend-title">Fire intensity <span>MW per detection</span></p>
+      <ColourBar background={FRP_GRADIENT} ticks={FRP_TICKS} />
     </div>
   )
 }
