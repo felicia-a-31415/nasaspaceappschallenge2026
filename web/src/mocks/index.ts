@@ -381,10 +381,10 @@ export async function weather(selection: Selection): Promise<WeatherResponse> {
  * here, from the years the newer camera has seen. Recent weather is left out, exactly as
  * the server does when NASA POWER cannot be reached.
  */
-export async function outlook(selection: Selection): Promise<OutlookResponse> {
+export async function outlook(selection: Selection, on?: string): Promise<OutlookResponse> {
   const h = await mockHotspots()
   const coverage = coverageFor(h, selection)
-  const asOf = h.dataThrough
+  const asOf = on && on < h.dataThrough ? on : h.dataThrough
   const window = {
     from: dayToDate(h.epoch, dateToDay(h.epoch, asOf) + 1),
     to: dayToDate(h.epoch, dateToDay(h.epoch, asOf) + 14),

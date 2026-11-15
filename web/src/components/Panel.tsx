@@ -11,7 +11,6 @@ import type {
 import type { View } from '../view'
 import { ActivityChart } from './ActivityChart'
 import { Downloads } from './Downloads'
-import { ForecastSlot } from './ForecastSlot'
 import { Outlook } from './Outlook'
 import { TopAreas } from './TopAreas'
 import { WeatherStrip } from './WeatherStrip'
@@ -28,8 +27,6 @@ export interface PanelProps {
   hotspots: HotspotArrays | null
   /** The last day the record holds, YYYY-MM-DD. */
   dataThrough?: string
-  /** Quick periods for the operational view. */
-  presets: { label: string; active: boolean; pick: () => void }[]
   onPick: (lat: number, lon: number, name: string | null) => void
   /** Open the sheet that documents and validates the harmonization. */
   onMethod: () => void
@@ -40,25 +37,13 @@ export interface PanelProps {
 /**
  * The inspector. It is one object: a new area swaps the whole of it once, through a
  * skeleton laid out like the answer, rather than section by section as requests land.
- *
- * Two arrangements of the same numbers. The record view leads with harmonized activity.
- * The operational view leads with the outlook and the period's measured FRP, under a
- * notice that this is an archive with an end date and not a live feed.
+ * The operational view has a board of its own (components/ops).
  */
 export function Panel(props: PanelProps) {
-  const { view, selection, panel, topAreas, onPick, dataThrough } = props
-  const shift = view.mode === 'shift'
+  const { selection, panel, topAreas, onPick } = props
 
   return (
     <>
-      {shift && (
-        <div className="record-banner" role="note">
-          <strong>Archive, not a live feed</strong>
-          <span>Record ends {dataThrough ?? 'at the last ingested day'}. No active-fire position or spread is shown.</span>
-        </div>
-      )}
-      {shift && <Presets presets={props.presets} />}
-
       {!selection && (
         <div className="prompt">
           <h2>No area selected</h2>
@@ -80,11 +65,10 @@ export function Panel(props: PanelProps) {
   )
 }
 
-function Answer({ view, selection, placeName, answer, weather, hotspots, onMethod, getCanvas }: PanelProps & {
+function Answer({ selection, placeName, answer, weather, hotspots, onMethod, getCanvas }: PanelProps & {
   selection: Selection
   answer: PanelAnswer
 }) {
-  const shift = view.mode === 'shift'
   const activity = answer.activity.ok ? answer.activity.data : null
   const stats = answer.stats.ok ? answer.stats.data : null
 
@@ -109,9 +93,9 @@ function Answer({ view, selection, placeName, answer, weather, hotspots, onMetho
   )
 
   const finding = activity && hasAnswer(activity.coverage) && (
-    <Finding activity={activity} selection={selection} demoted={shift} onMethod={onMethod} />
+    <Finding activity={activity} selection={selection} onMethod={onMethod} />
   )
-  const measured = stats && hasAnswer(stats.coverage) && <Measured stats={stats} shift={shift} />
+  const measured = stats && hasAnswer(stats.coverage) && <Measured stats={stats} />
   // The outlook lands after the rest (it waits on NASA POWER weather); hold its place.
   const outlook = answer.outlook === null
     ? (
@@ -120,7 +104,7 @@ function Answer({ view, selection, placeName, answer, weather, hotspots, onMetho
         <p className="small muted">Retrieving NASA POWER weather…</p>
       </section>
     )
-    : answer.outlook.ok ? <Outlook data={answer.outlook.data} raised={shift} /> : null
+    : answer.outlook.ok ? <Outlook data={answer.outlook.data} /> : null
   const years = stats && hasAnswer(stats.coverage) && stats.detections > 0 && <YearChart years={stats.by_year} />
   const tail = (
     <>
@@ -128,23 +112,7 @@ function Answer({ view, selection, placeName, answer, weather, hotspots, onMetho
     </>
   )
 
-  return shift
-    ? <>{head}{problems}{outlook}{measured}<WeatherStrip state={weather} />{finding}{years}<ForecastSlot view={view} />{tail}</>
-    : <>{head}{problems}{finding}{measured}{years}<ForecastSlot view={view} />{outlook}<WeatherStrip state={weather} />{tail}</>
-}
-
-function Presets({ presets }: { presets: PanelProps['presets'] }) {
-  if (!presets.length) return null
-  return (
-    <div className="presets">
-      <p className="eyebrow">Period, back from end of record</p>
-      <div className="seg seg-fill" role="group" aria-label="Period">
-        {presets.map((p) => (
-          <button key={p.label} type="button" aria-pressed={p.active} onClick={p.pick}>{p.label}</button>
-        ))}
-      </div>
-    </div>
-  )
+  return <>{head}{problems}{finding}{measured}{years}{outlook}<WeatherStrip state={weather} />{tail}</>
 }
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -197,10 +165,9 @@ function RankStrip({ rank, total }: { rank: number; total: number }) {
 }
 
 /** Harmonized activity against its baseline: the one quantity comparable across 2012. */
-function Finding({ activity, selection, demoted, onMethod }: {
+function Finding({ activity, selection, onMethod }: {
   activity: ActivityResponse
   selection: Selection
-  demoted: boolean
   onMethod: () => void
 }) {
   // The record stops part-way through the current month, and a part month is never
@@ -212,7 +179,7 @@ function Finding({ activity, selection, demoted, onMethod }: {
   const high = estimated.reduce((sum, m) => sum + m.high, 0)
 
   return (
-    <section className={`finding ${demoted ? 'is-demoted' : ''}`} aria-label="Harmonized fire activity against baseline">
+    <section className="finding" aria-label="Harmonized fire activity against baseline">
       <h3>Fire activity <Kind kind="corrected">harmonized</Kind></h3>
       {summary
         ? (
@@ -263,7 +230,7 @@ function Finding({ activity, selection, demoted, onMethod }: {
         : activity.months.length > 0 && (
           <p className="small kind-line"><Kind kind="measured">measured</Kind> All months observed by VIIRS; no conversion applied.</p>
         )}
-      {!demoted && <ActivityChart months={activity.months} />}
+      <ActivityChart months={activity.months} />
       <button type="button" className="link" onClick={onMethod}>Method and validation</button>
     </section>
   )
@@ -305,7 +272,7 @@ function CoverageNote({ coverage, progress, detail }: {
 }
 
 /** Raw detections and FRP: measured, never converted, never compared across 2012. */
-function Measured({ stats, shift }: { stats: StatsResponse; shift: boolean }) {
+function Measured({ stats }: { stats: StatsResponse }) {
   if (stats.detections === 0) {
     return (
       <section className="measured">
@@ -318,7 +285,7 @@ function Measured({ stats, shift }: { stats: StatsResponse; shift: boolean }) {
   const sensors = [...new Set(stats.by_year.map((y) => y.sensor))]
 
   return (
-    <section className={`measured ${shift ? 'is-raised' : ''}`}>
+    <section className="measured">
       <h3>Detections <Kind kind="measured">raw</Kind></h3>
       <dl className="figures">
         <div><dt>Detections</dt><dd>{count(stats.detections)}</dd></div>

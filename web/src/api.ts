@@ -2,8 +2,8 @@
 // Nothing else in the app may call fetch.
 
 import { USE_MOCKS } from './env'
-import { NO_FORECAST } from './forecast'
-import type { Forecast, ForecastRequest } from './forecast'
+import { FORECAST_DAYS, fromSpread, NO_FORECAST } from './forecast'
+import type { Forecast, ForecastRequest, SpreadResponse } from './forecast'
 import * as mock from './mocks'
 import { forecast as mockForecast } from './mocks/forecast'
 import type {
@@ -93,10 +93,11 @@ export function getTopAreas(
   return get(`/api/top-areas?${q}`, signal)
 }
 
-export function getOutlook(selection: Selection, signal?: AbortSignal): Promise<OutlookResponse> {
+/** `on` is the day the outlook is issued for, YYYY-MM-DD; left out, it is the last day of the record. */
+export function getOutlook(selection: Selection, signal?: AbortSignal, on?: string): Promise<OutlookResponse> {
   return USE_MOCKS
-    ? mock.outlook(selection)
-    : get(`/api/outlook?${selectionQuery(selection)}`, signal)
+    ? mock.outlook(selection, on)
+    : get(`/api/outlook?${selectionQuery(selection, on ? { on } : {})}`, signal)
 }
 
 export function getWeather(selection: Selection, signal?: AbortSignal): Promise<WeatherResponse> {
@@ -105,15 +106,21 @@ export function getWeather(selection: Selection, signal?: AbortSignal): Promise<
     : get(`/api/weather?${selectionQuery(selection)}`, signal)
 }
 
-// --- reserved: a forecast --------------------------------------------------
+// --- experimental: the spread forecast -------------------------------------
 
 /**
- * Not an endpoint yet. The server offers no forecast and its shape has not been agreed,
- * so this asks nothing over the network and reports that none is available. When the
- * backend owner adds one, this is the only function to change.
+ * The server's experimental spread forecast for the view's point and circle, starting
+ * from `day` (see forecastDay). Only the answer for the point and the server's reasons
+ * are kept; the per-square chances are dropped in fromSpread and never reach the page.
+ * A day the server refuses is an ApiRequestError carrying its sentence.
  */
-export function getForecast(view: ForecastRequest, _signal?: AbortSignal): Promise<Forecast> {
-  return USE_MOCKS ? mockForecast(view) : Promise.resolve(NO_FORECAST)
+export async function getForecast(view: ForecastRequest, day: string, signal?: AbortSignal): Promise<Forecast> {
+  if (view.lat === null || view.lon === null) return NO_FORECAST
+  if (USE_MOCKS) return mockForecast(view, day)
+  const q = new URLSearchParams({
+    lat: String(view.lat), lon: String(view.lon), radius_km: String(view.radius_km), on: day, days: String(FORECAST_DAYS),
+  })
+  return fromSpread(await get<SpreadResponse>(`/api/spread?${q}`, signal))
 }
 
 // --- downloads: plain links ------------------------------------------------

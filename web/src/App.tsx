@@ -8,6 +8,9 @@ import { Legend } from './components/Legend'
 import { MapControls } from './components/MapControls'
 import type { MapLayers } from './components/MapControls'
 import { Method } from './components/Method'
+import { DayStrip } from './components/ops/DayStrip'
+import { OpsKey } from './components/ops/OpsKey'
+import { OpsPanel } from './components/ops/OpsPanel'
 import { Panel } from './components/Panel'
 import { SearchBox } from './components/SearchBox'
 import { StatusBar } from './components/StatusBar'
@@ -15,13 +18,15 @@ import { TimeBar } from './components/TimeBar'
 import { useHotspots } from './hooks/useHotspots'
 import { usePanel } from './hooks/usePanel'
 import { useSelectionQuery } from './hooks/useSelectionQuery'
+import { useSituation } from './hooks/useSituation'
 import { useTimeline } from './hooks/useTimeline'
 import { useView } from './hooks/useView'
 import { nameNear } from './places'
-import { dayToDate } from './lib/days'
+import { dayToDate, formatDate } from './lib/days'
 import { count } from './lib/format'
 import { circlePolygon } from './lib/geo'
 import { computeAnomaly } from './map/anomaly'
+import { sliceByDay } from './map/field'
 import { frpCells } from './map/frpCells'
 import { MapView } from './map/MapView'
 import type { AboutResponse, Selection, TopArea } from './types'
@@ -105,7 +110,7 @@ export default function App() {
     return () => controller.abort()
   }, [])
 
-  const { months, monthRange, recordLast } = timeline
+  const { months, monthRange } = timeline
   const fromMonth = months[monthRange[0]]
   const toMonth = months[monthRange[1]]
   const { lat, lon, radius_km: radiusKm } = view
@@ -114,21 +119,25 @@ export default function App() {
     ? { lat, lon, radius_km: radiusKm, from: fromMonth, to: toMonth }
     : null), [lat, lon, radiusKm, fromMonth, toMonth])
 
-  const panel = usePanel(selection)
+  const shift = view.mode === 'shift'
+  /** The situation board, when it is the view on screen. */
+  const ops = useSituation(data, view)
+  // The record's own questions are not asked while the board is up.
+  const panel = usePanel(shift ? null : selection)
 
   // The hardest-hit squares depend on the months alone, not on the circle.
   const range = useMemo(
-    () => (fromMonth ? { from: fromMonth, to: toMonth, limit: 10 } : null),
-    [fromMonth, toMonth],
+    () => (fromMonth && !shift ? { from: fromMonth, to: toMonth, limit: 10 } : null),
+    [fromMonth, toMonth, shift],
   )
   const topAreas = useSelectionQuery(range, (key, signal) => getTopAreas(key, signal))
   // Daily weather over a 26-year range would be a huge request for little gain, so the
   // strip covers at most the last three years of the chosen period and says so.
   const weatherFor = useMemo(() => {
-    if (!selection || !months.length) return null
+    if (!selection || !months.length || shift) return null
     const start = Math.max(monthRange[0], monthRange[1] - (WEATHER_MONTHS - 1))
     return { ...selection, from: months[start] }
-  }, [selection, months, monthRange])
+  }, [selection, months, monthRange, shift])
   const weather = useSelectionQuery(weatherFor, (sel, signal) => getWeather(sel, signal))
   const areas = topAreas.status === 'ready' ? topAreas.data.areas : EMPTY_AREAS
 
@@ -158,39 +167,13 @@ export default function App() {
 
   const dataThrough = about?.data_through ?? data?.dataThrough
 
-  // Quick periods for someone on shift, all counted back from the end of the record.
-  const presets = useMemo(() => {
-    if (!months.length) return []
-    const lastMonth = months[recordLast]
-    const options = [
-      { label: 'Last 3 months', from: months[Math.max(0, recordLast - 2)] },
-      { label: `${lastMonth.slice(0, 4)} so far`, from: months.find((m) => m.startsWith(lastMonth.slice(0, 4))) ?? lastMonth },
-      { label: 'Last 12 months', from: months[Math.max(0, recordLast - 11)] },
-    ]
-    return options.map((option) => ({
-      label: option.label,
-      active: fromMonth === option.from && monthRange[1] === recordLast,
-      pick: () => {
-        if (timeline.playing) timeline.pause()
-        setView({ from: option.from, to: null })
-      },
-    }))
-    // `timeline` is a new object every frame while playing; its parts are named instead.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [months, recordLast, fromMonth, monthRange, timeline.playing, timeline.pause, setView])
-
   const setMode = (mode: Mode) => {
     if (mode === view.mode) return
-    if (mode === 'shift') {
-      // On shift, the recent past comes first: this year up to the end of the record.
-      if (timeline.playing) timeline.pause()
-      const lastMonth = months[recordLast]
-      const from = lastMonth ? months.find((m) => m.startsWith(lastMonth.slice(0, 4))) ?? null : null
-      setView({ mode, from, to: null })
-    } else {
-      setView({ mode })
-    }
+    // The board is read on one day; a run through the record would carry on under it.
+    if (mode === 'shift' && timeline.playing) timeline.pause()
+    setView({ mode })
   }
+  const setDay = useCallback((on: string | null) => setView({ on }), [setView])
 
   // While playing, the days just behind the playhead flare: about three quarters of a
   // second of the run, however long the period it covers.
@@ -200,16 +183,16 @@ export default function App() {
 
   // Encoding B is worked out for the period at rest, never frame by frame.
   const anomaly = useMemo(
-    () => (data && fromMonth && layers.encoding === 'anomaly' ? computeAnomaly(data, fromMonth, toMonth) : null),
-    [data, fromMonth, toMonth, layers.encoding],
+    () => (data && fromMonth && !shift && layers.encoding === 'anomaly' ? computeAnomaly(data, fromMonth, toMonth) : null),
+    [data, fromMonth, toMonth, layers.encoding, shift],
   )
   const anomalyShown = anomaly?.ok && !timeline.playing ? anomaly.cells : null
 
   // ΣFRP cells are aggregated for the period at rest; playback draws detections.
   const [restFrom, restTo] = timeline.dayRange
   const frpGrid = useMemo(
-    () => (data && layers.field && layers.encoding === 'frp' && !timeline.playing ? frpCells(data, restFrom, restTo) : null),
-    [data, layers.field, layers.encoding, timeline.playing, restFrom, restTo],
+    () => (data && !shift && layers.field && layers.encoding === 'frp' && !timeline.playing ? frpCells(data, restFrom, restTo) : null),
+    [data, shift, layers.field, layers.encoding, timeline.playing, restFrom, restTo],
   )
 
   const getCanvas = useCallback(() => mapRef.current?.getCanvas() ?? null, [])
@@ -234,21 +217,31 @@ export default function App() {
   const placeName = searched ?? (found && found.lat === lat && found.lon === lon ? found.name : null)
   const radii = about?.radii_km ?? RADII_KM
 
+  const recency = useMemo(
+    () => (ops ? { fromDay: ops.fromDay, asOfDay: ops.asOfDay } : null),
+    // The two days are all the map reads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ops?.fromDay, ops?.asOfDay],
+  )
+  const opsShown = data && ops ? sliceByDay(data.day, ops.fromDay, ops.asOfDay) : null
+  const calendar = workspace === 'calendar' && !shift
+
   return (
-    <div className={`app mode-${view.mode} view-${workspace} ${fullMap ? 'is-fullmap' : ''}`}>
+    <div className={`app mode-${view.mode} view-${calendar ? 'calendar' : 'map'} ${fullMap ? 'is-fullmap' : ''}`}>
       <main className="stage">
         <MapView
           hotspots={data}
           dayRange={timeline.dayRange}
           softRange={null}
           cells={frpGrid}
-          flare={flare}
+          flare={shift ? null : flare}
           anomaly={anomalyShown}
+          recency={recency}
           base={layers.base}
           graticule={layers.graticule}
           labels={layers.labels}
           selection={selection}
-          topAreas={layers.squares ? areas : EMPTY_AREAS}
+          topAreas={!layers.squares ? EMPTY_AREAS : ops ? ops.areas : areas}
           onMapClick={(atLat, atLon) => {
             setView({ lat: atLat, lon: atLon })
             setNamed(null)
@@ -263,7 +256,7 @@ export default function App() {
           }}
         />
 
-        {data && workspace === 'calendar' && fromMonth && (
+        {data && calendar && fromMonth && (
           <CalendarView
             hotspots={data}
             selection={selection}
@@ -276,6 +269,19 @@ export default function App() {
         )}
       </main>
 
+      {shift && data && ops && (
+        <DayStrip
+          hotspots={data}
+          asOfDay={ops.asOfDay}
+          year={ops.year}
+          local={ops.board.local}
+          shown={opsShown ? opsShown[1] - opsShown[0] : 0}
+          onDay={setDay}
+        />
+      )}
+
+      {shift && data && <OpsKey squares={layers.squares} />}
+
       <aside className={`side ${panel.pending ? 'is-pending' : ''}`} aria-label="Inspector">
         <header className="sheet-head">
           <div className="brand">
@@ -283,17 +289,47 @@ export default function App() {
             <span>Is There Seriously Smoke?</span>
           </div>
           <SearchBox onFound={choose} />
-          <div className="seg seg-fill" role="group" aria-label="Workspace">
-            {WORKSPACES.map(({ id, label }) => (
-              <button key={id} type="button" aria-pressed={workspace === id} onClick={() => setWorkspace(id)}>{label}</button>
+          <div className="seg seg-fill" role="group" aria-label="View">
+            {MODES.map(({ mode, label }) => (
+              <button key={mode} type="button" aria-pressed={view.mode === mode} onClick={() => setMode(mode)}>{label}</button>
             ))}
           </div>
-          <p className="telemetry">
-            {data ? `${count(data.count)} detections · ${dayToDate(data.epoch, data.minDay)} → ${dataThrough ?? ''}` : 'Loading archive'}
-          </p>
+          {!shift && (
+            <div className="seg seg-fill" role="group" aria-label="Workspace">
+              {WORKSPACES.map(({ id, label }) => (
+                <button key={id} type="button" aria-pressed={workspace === id} onClick={() => setWorkspace(id)}>{label}</button>
+              ))}
+            </div>
+          )}
+          {shift && data && ops
+            ? (
+              // The one caveat every figure below depends on: which day, and how current it is.
+              <p className={`ops-status ${ops.latest ? '' : 'is-past'}`} role="status">
+                {ops.latest
+                  ? `Latest data: ${formatDate(data.dataThrough)}. Not a live feed.`
+                  : `Showing a past day. Latest data is ${formatDate(data.dataThrough)}.`}
+              </p>
+            )
+            : (
+              <p className="telemetry">
+                {data ? `${count(data.count)} detections · ${dayToDate(data.epoch, data.minDay)} → ${dataThrough ?? ''}` : 'Loading archive'}
+              </p>
+            )}
         </header>
         <div className="side-scroll">
-          <Panel
+          {shift && data && ops && (
+            <OpsPanel
+              view={view}
+              hotspots={data}
+              state={ops}
+              placeName={placeName}
+              radii={radii}
+              onRadius={chooseRadius}
+              onPick={choose}
+              onClear={() => setView({ lat: null, lon: null })}
+            />
+          )}
+          {!shift && <Panel
             view={view}
             selection={selection}
             placeName={placeName}
@@ -303,18 +339,12 @@ export default function App() {
             about={about}
             hotspots={data}
             dataThrough={dataThrough}
-            presets={presets}
             onPick={choose}
             onMethod={() => setMethod(true)}
             getCanvas={getCanvas}
-          />
+          />}
         </div>
         <footer className="sheet-foot">
-          <div className="seg" role="group" aria-label="View">
-            {MODES.map(({ mode, label }) => (
-              <button key={mode} type="button" aria-pressed={view.mode === mode} onClick={() => setMode(mode)}>{label}</button>
-            ))}
-          </div>
           <CopyLink view={view} />
           <button type="button" onClick={() => setMethod(true)}>Method</button>
         </footer>
@@ -322,12 +352,12 @@ export default function App() {
 
       <div className="tools">
         <div className="tools-row">
-          <div className="seg" role="group" aria-label="Colour encoding">
+          {!shift && <div className="seg" role="group" aria-label="Colour encoding">
             <button type="button" aria-pressed={layers.encoding === 'frp'} onClick={() => changeLayers({ encoding: 'frp' })} title="Fire radiative power, MW">FRP</button>
             <button type="button" aria-pressed={layers.encoding === 'anomaly'} onClick={() => changeLayers({ encoding: 'anomaly' })} title="Standardized anomaly, z">Anomaly z</button>
-          </div>
+          </div>}
           <button type="button" aria-expanded={layersOpen} onClick={() => setLayersOpen((open) => !open)}>Layers</button>
-          {workspace === 'map' && (
+          {!calendar && (
             <button
               type="button"
               onClick={() => setFullMap((on) => !on)}
@@ -339,15 +369,15 @@ export default function App() {
           )}
         </div>
         {layersOpen && (
-          <MapControls layers={layers} onLayers={changeLayers} radii={radii} radiusKm={radiusKm} onRadius={chooseRadius} />
+          <MapControls layers={layers} onLayers={changeLayers} radii={radii} radiusKm={radiusKm} onRadius={chooseRadius} board={shift} />
         )}
       </div>
 
-      {data && workspace === 'map' && (
+      {data && !calendar && !shift && (
         <Legend map={map} encoding={layers.encoding} anomaly={timeline.playing ? null : anomaly} cells={frpGrid !== null} />
       )}
 
-      {data && <TimeBar timeline={timeline} hotspots={data} dataThrough={dataThrough} getCanvas={getCanvas} />}
+      {data && !shift && <TimeBar timeline={timeline} hotspots={data} dataThrough={dataThrough} getCanvas={getCanvas} />}
 
       <StatusBar map={map} dataThrough={dataThrough} />
 

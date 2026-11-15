@@ -194,6 +194,21 @@ export function Method({ about, onClose }: { about: AboutResponse | null; onClos
           )}
 
           <section>
+            <h3>Experimental spread forecast</h3>
+            <p>
+              In the operational view, a model learned from past Quebec fires gives the
+              chance that fire is seen within 2 km of the chosen point over the next
+              three days. Tested on 2023, a season the model never saw. A warning zone
+              covering the closest 2% of the area caught 40% of next-day fire spread,
+              against 35% for simply picking the squares nearest the fire.
+            </p>
+            <p className="small muted">
+              It is a likelihood for a place, not a map of where a fire will go. It does
+              not know about firefighting, lakes, roads or fuel type.
+            </p>
+          </section>
+
+          <section>
             <h3>What this cannot tell you</h3>
             <ul>
               <li>It is valid for an area over a month or longer, never for one detection or one day.</li>
