@@ -769,10 +769,9 @@ button.link:hover:not(:disabled) { background: none; color: #a6d9ff; }
 .status-cell b { font-weight: 500; color: var(--ink-3); letter-spacing: 0.06em; }
 .status-cursor { min-width: 276px; color: var(--ink); }
 .status-cursor b:nth-of-type(2) { margin-left: 8px; }
-.status-scale i { display: block; height: 5px; border: 1px solid var(--ink-2); border-top: 0; }
 .status-credits { flex: 1 1 auto; min-width: 0; padding: 0 13px; overflow: hidden; text-overflow: ellipsis; text-align: right; color: var(--ink-3); }
 
-.td-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.td-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 
 .play {
   flex: none;
@@ -815,15 +814,19 @@ button.link:hover:not(:disabled) { background: none; color: #a6d9ff; }
 .track {
   flex: 1 1 300px;
   min-width: 0;
-  padding: 8px 14px 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: 20px;
+  padding: 0 4px;
   cursor: pointer;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
-.track-plot { position: relative; height: 40px; }
+.track-plot { grid-row: 1; grid-column: 2; position: relative; height: 28px; }
 
-.track-shape { position: absolute; left: 0; bottom: 0; width: 100%; height: 40px; }
+.track-shape { position: absolute; left: 0; bottom: 0; width: 100%; height: 28px; }
 .shape-older { fill: #4d5562; }
 .shape-newer { fill: #69727e; }
 /* Lit in the fire colours; the older camera stays the dimmer of the two. */
@@ -851,7 +854,9 @@ button.link:hover:not(:disabled) { background: none; color: #a6d9ff; }
 .track-head { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ink); opacity: 0.6; pointer-events: none; }
 
 /* The slider sits under the chart: a thin line, the chosen period on it, two pills. */
-.track-rail { position: relative; height: 18px; margin-top: 6px; }
+.track-rail { grid-row: 2; grid-column: 2; position: relative; height: 16px; margin-top: 4px; }
+.track-end { grid-row: 2; grid-column: 1; margin-top: 4px; font: 400 11px/1 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.track-end + .track-rail + .track-end { grid-column: 3; }
 .rail-line, .rail-band {
   position: absolute;
   top: 50%;
@@ -911,21 +916,6 @@ button.link:hover:not(:disabled) { background: none; color: #a6d9ff; }
 }
 .handle:hover .handle-tip, .handle:focus-visible .handle-tip, .track.is-dragging .handle:focus .handle-tip { opacity: 1; }
 
-.track-years { position: relative; height: 22px; margin-top: 1px; }
-.year { position: absolute; top: 0; display: flex; flex-direction: column; align-items: center; transform: translateX(-50%); }
-.year i { width: 1px; height: 4px; background: var(--ink-3); }
-.year.is-labelled i { height: 7px; }
-.year button {
-  margin-top: 1px;
-  padding: 0 3px;
-  border: 0;
-  font: 400 11px/14px var(--mono);
-  color: var(--ink-2);
-  white-space: nowrap;
-}
-.year button:hover:not(:disabled) { background: var(--bg-2); color: var(--ink); }
-.year.is-switch button { color: var(--warn); }
-.year.is-switch i { background: var(--warn); }
 
 .credits { font: 400 10.5px/1.5 var(--mono); color: var(--ink-3); }
 
@@ -1157,9 +1147,9 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
   right: var(--gap);
   bottom: calc(var(--status-h) + var(--gap));
   border-radius: var(--r);
-  padding: 12px 16px 9px;
+  padding: 8px 14px;
 }
-.play { border-radius: 50%; background: var(--fill-2); }
+.play { width: 30px; height: 30px; border-radius: 50%; background: var(--fill-2); font-size: 10px; }
 .shape-older { fill: rgba(255, 255, 255, 0.2); }
 .shape-newer { fill: rgba(255, 255, 255, 0.3); }
 .popover { background: #1b1e21; }
@@ -1291,6 +1281,14 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
 .legend-bar + .legend-bounds span:first-child { transform: none; }
 .legend-bar + .legend-bounds span:last-child { transform: translateX(-100%); }
 .legend-foot { font-size: 11px; color: var(--ink-3); }
+
+/* A continuous colour bar: framed gradient, tick marks hanging below, labels, caption. */
+.colourbar { display: flex; flex-direction: column; padding: 0 10px; }
+.colourbar-bar { height: 16px; border: 1px solid var(--ink-2); border-radius: 1px; }
+.colourbar-ticks { position: relative; height: 20px; font: 400 10.5px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.colourbar-ticks span { position: absolute; top: 0; padding-top: 8px; transform: translateX(-50%); white-space: nowrap; }
+.colourbar-ticks span::before { content: ''; position: absolute; top: 0; left: 50%; width: 1px; height: 5px; background: var(--ink-2); }
+.colourbar-caption { margin-top: 3px; text-align: center; font-size: 11px; color: var(--ink-2); }
 
 .sheet-foot { flex-wrap: nowrap; gap: 6px; }
 .sheet-foot button { padding-inline: 10px; }

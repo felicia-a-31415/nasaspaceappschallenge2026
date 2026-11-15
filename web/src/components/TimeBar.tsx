@@ -1,14 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { formatMonth, monthStartDay, SWITCH_MONTH } from '../lib/days'
+import { formatMonth, SWITCH_MONTH } from '../lib/days'
 import { monthlyIntensity, profileHeights } from '../lib/profile'
 import { anchorFor, monthAt, nudge, spanFrom } from '../lib/rangeDrag'
-import type { MonthSpan } from '../lib/rangeDrag'
 import { dayShare } from '../hooks/useTimeline'
 import type { Timeline } from '../hooks/useTimeline'
 import type { HotspotArrays } from '../types'
 import { ExportVideo } from './ExportVideo'
 
-const SWITCH_YEAR = Number(SWITCH_MONTH.slice(0, 4))
 
 export interface TimeBarProps {
   timeline: Timeline
@@ -60,7 +58,8 @@ export function TimeBar({ timeline, hotspots, getCanvas }: TimeBarProps) {
 
 /**
  * The track: a thin rail with two round handles, a low shape of each month's fire
- * intensity above it to aim at, year ticks for scale, and the February 2012 line. It is
+ * intensity above it to aim at, the first and last year at its ends, and the February
+ * 2012 line. It is
  * one pointer-driven control rather than two stacked sliders, so the handles can sit on
  * the same month, or pass through each other, and still be picked up. Each handle is its
  * own keyboard stop.
@@ -76,17 +75,8 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
   const plot = useRef<HTMLDivElement>(null)
   const fromHandle = useRef<HTMLButtonElement>(null)
   const toHandle = useRef<HTMLButtonElement>(null)
-  const drag = useRef<{ anchor: number; offset: number } | { seek: true } | null>(null)
-  const [width, setWidth] = useState(0)
+  const drag = useRef<{ anchor: number; offset: number } | null>(null)
   const [dragging, setDragging] = useState(false)
-
-  useEffect(() => {
-    const element = plot.current
-    if (!element) return
-    const observer = new ResizeObserver(() => setWidth(element.clientWidth))
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
 
   const heights = useMemo(
     () => profileHeights(monthlyIntensity(hotspots, months), months),
@@ -106,22 +96,6 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
     return { older: older.join(''), newer: newer.join('') }
   }, [heights, switchIndex])
 
-  // Every January is a tick; how many carry a label depends on the room. The year the
-  // camera changed is always named, and its neighbours make way for it.
-  const years = useMemo(() => {
-    const perYear = last > 0 ? (width / last) * 12 : 0
-    const every = perYear >= 35 ? 1 : perYear >= 18 ? 2 : 5
-    return months
-      .map((month, index) => ({ month, index }))
-      .filter(({ month }) => month.endsWith('-01'))
-      .map(({ month, index }) => {
-        const year = Number(month.slice(0, 4))
-        const isSwitch = year === SWITCH_YEAR && switchIndex >= 0
-        const crowded = !isSwitch && switchIndex >= 0 && Math.abs(year - SWITCH_YEAR) * perYear < 36
-        return { year, index, isSwitch, labelled: isSwitch || (year % every === 0 && !crowded) }
-      })
-  }, [months, last, width, switchIndex])
-
   const pointerMonth = (clientX: number, offset = 0) => {
     const box = plot.current!.getBoundingClientRect()
     return monthAt(clientX - offset, box.left, box.width, last)
@@ -136,14 +110,8 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
 
   const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.button !== 0) return
-    if ((event.target as HTMLElement).closest('.track-years')) return
     event.preventDefault()
     track.current!.setPointerCapture(event.pointerId)
-    if (playing) {
-      drag.current = { seek: true }
-      timeline.seek(monthStartDay(epoch, months[pointerMonth(event.clientX)]))
-      return
-    }
     // A handle picked up off-centre should not jump to the pointer.
     const grabbed = (event.target as HTMLElement).closest<HTMLElement>('.handle')
     let offset = 0
@@ -158,16 +126,21 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
     drag.current = { anchor, offset }
     setDragging(true)
     ;(anchor === to && from !== to ? fromHandle : toHandle).current?.focus({ preventScroll: true })
+    if (playing) {
+      // Pressing the slider stops playback and hands the range back to the pointer.
+      // Pausing reports its own range once React renders, so the first move waits for it.
+      timeline.pause()
+      requestAnimationFrame(() => {
+        if (drag.current) apply(anchor, at)
+      })
+      return
+    }
     apply(anchor, at)
   }
 
   const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const state = drag.current
     if (!state) return
-    if ('seek' in state) {
-      timeline.seek(monthStartDay(epoch, months[pointerMonth(event.clientX)]))
-      return
-    }
     apply(state.anchor, pointerMonth(event.clientX, state.offset))
   }
 
@@ -180,17 +153,8 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
     const next = nudge(monthRange, handle, event.key, recordLast)
     if (!next) return
     event.preventDefault()
-    timeline.setMonthRange(next)
-  }
-
-  const pickYear = (year: number) => {
-    const first = months.findIndex((m) => m.startsWith(`${year}-`))
-    if (first < 0 || first > recordLast) return
-    let end = first
-    while (end + 1 <= recordLast && months[end + 1].startsWith(`${year}-`)) end++
-    const span: MonthSpan = [first, end]
     if (playing) timeline.pause()
-    timeline.setMonthRange(span)
+    else timeline.setMonthRange(next)
   }
 
   // While playing the band is what is on the map: from the start of the run to the playhead.
@@ -245,12 +209,12 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
 
       {/* The slider: one long line under the chart, the chosen period drawn on it, and a
           pill at each end to drag. */}
+      <span className="track-end" aria-hidden="true">{months[0].slice(0, 4)}</span>
       <div className="track-rail">
         <div className="rail-line" />
         <div className="rail-band" style={band} />
         {playing && <div className="rail-head" style={{ left: `${headAt}%` }} aria-hidden="true" />}
-        {!playing && (
-          <>
+        <>
             <button
               type="button" role="slider" className="handle" ref={fromHandle}
               style={{ left: `${share(from)}%` }}
@@ -271,29 +235,10 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
             >
               <span className="handle-tip" aria-hidden="true">{formatMonth(months[to])}</span>
             </button>
-          </>
-        )}
+        </>
       </div>
 
-      <div className="track-years">
-        {years.map(({ year, index, labelled, isSwitch }) => (
-          <span key={year} className={`year ${isSwitch ? 'is-switch' : ''} ${labelled ? 'is-labelled' : ''}`} style={{ left: `${share(index)}%` }}>
-            <i aria-hidden="true" />
-            {labelled && (
-              <button
-                type="button" tabIndex={-1}
-                disabled={index > recordLast}
-                aria-label={isSwitch
-                  ? `Show all of ${year}, the year the sharper camera took over`
-                  : `Show all of ${year}`}
-                onClick={() => pickYear(year)}
-              >
-                {isSwitch ? `▲ ${year}` : year}
-              </button>
-            )}
-          </span>
-        ))}
-      </div>
+      <span className="track-end" aria-hidden="true">{months[last].slice(0, 4)}</span>
 
       <p className="visually-hidden">
         The shape above the track is the total fire intensity in each month. Each side of
