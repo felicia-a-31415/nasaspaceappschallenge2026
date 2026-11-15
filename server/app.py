@@ -23,10 +23,11 @@ from fastapi.staticfiles import StaticFiles
 from harmonize.borders import BOX, coverage
 from harmonize.query import RADII_KM, circle_monthly, monthly_csv, summarize
 from server.ondemand import Places, box_for
-from server import stats, weather
+from server import outlook, stats, weather
 from server.store import hotspots_in_circle, load_region
 
 MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 CHARTS = ("before", "after", "validation")
 MAX_HOTSPOT_ROWS = 500_000
 CSV_CHUNK = 50_000
@@ -243,6 +244,28 @@ def create_app(data_dir, cache_dir, places=None, weather_daily=weather.daily, we
         except weather.WeatherError:
             raise HTTPException(502, NO_WEATHER) from None
         return {"source": "NASA POWER", "days": days}
+
+    @app.get("/api/outlook")
+    def risk_outlook(lat: float, lon: float, radius_km: int = 100, on: str | None = None):
+        sel = Selection(lat, lon, radius_km, None, None)
+        if on is not None and not DAY.match(on):
+            raise HTTPException(422, "The 'on' day must look like 2023-06-01.")
+        table, where, _, detail = table_for(sel)
+        if table is None or not len(table.cd):
+            return {"coverage": where, "detail": detail or NOTHING_YET, **outlook.empty(date.today())}
+        try:
+            day = date.fromisoformat(on or table.data_through)
+        except ValueError:
+            raise HTTPException(422, "The 'on' day must be a real date, like 2023-06-01.") from None
+        if day > date.fromisoformat(table.data_through):
+            raise HTTPException(422, f"The outlook can only be asked for a day up to {table.data_through}, "
+                                     "the last day with fire records.")
+        try:
+            days = cached_weather(round(lat, 2), round(lon, 2), outlook.WEATHER_START, day)
+        except weather.WeatherError:
+            days = None
+        body = outlook.outlook(table.cd, sel.lat, sel.lon, sel.radius_km, day, days, table.data_start.start_time.date())
+        return {"coverage": where, "detail": None, **body}
 
     @app.get("/api/about")
     def about():

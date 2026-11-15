@@ -253,3 +253,30 @@ def test_weather_failure_is_a_plain_sentence(tmp_path, places):
 def test_built_page_is_served_without_hiding_the_api(client):
     assert "the page" in client.get("/").text
     assert client.get("/api/about").status_code == 200
+
+
+def test_outlook_in_quebec_says_when_history_is_too_short(client):
+    body = client.get("/api/outlook", params=HERE).json()
+    assert body["coverage"] == "preloaded" and body["label"].startswith("Outlook from past seasons")
+    assert body["as_of"] == "2015-12-10" and body["level"] is None and body["reasons"]   # VIIRS only from 2012: too few years
+    assert fake_weather.calls[-1][3] == pd.Timestamp("2015-12-10").date()
+
+
+@pytest.mark.parametrize("on", ["2015-13-01", "soon", "2016-01-01"])
+def test_outlook_date_must_be_a_day_with_data(client, on):
+    r = client.get("/api/outlook", params=HERE | {"on": on})
+    assert r.status_code == 422 and isinstance(r.json()["detail"], str)
+
+
+def test_outlook_outside_quebec_waits_for_the_fetch(client):
+    body = client.get("/api/outlook", params=SACRAMENTO).json()
+    assert body["coverage"] == "queued" and body["level"] is None and body["detail"]
+
+
+def test_outlook_survives_missing_weather(tmp_path, places):
+    from server.weather import WeatherError
+    def broken(*args):
+        raise WeatherError("x")
+    c = TestClient(create_app(make_region(tmp_path / "quebec"), tmp_path / "cache", places=places, weather_daily=broken))
+    r = c.get("/api/outlook", params=HERE)
+    assert r.status_code == 200 and r.json()["weather"] is None
