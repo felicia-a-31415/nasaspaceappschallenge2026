@@ -1,6 +1,6 @@
 import { getActivity, getStats } from '../api'
 import { useSelectionQuery } from '../hooks/useSelectionQuery'
-import { formatDate, formatMonth, periodLabel } from '../lib/days'
+import { formatDate, formatMonth, isMonthEnd, periodLabel } from '../lib/days'
 import { coordinates, count, megawatts, plural, times } from '../lib/format'
 import { hasAnswer } from '../types'
 import type { ActivityResponse, Coverage, Selection, StatsResponse } from '../types'
@@ -17,6 +17,9 @@ export function StatsPanel({ selection, placeName }: StatsPanelProps) {
 
   const answer = activity.status === 'ready' ? activity.data : null
   const numbers = stats.status === 'ready' ? stats.data : null
+  // The record stops part-way through the current month, and a half month is never
+  // weighed against whole ones, so the sentence can cover less than the chosen range.
+  const unfinished = unfinishedMonth(answer)
 
   return (
     <section className="stats" aria-label="What burned here">
@@ -47,12 +50,18 @@ export function StatsPanel({ selection, placeName }: StatsPanelProps) {
             Corrected so the two cameras can be compared. This weighs{' '}
             {periodLabel(answer.summary.year, answer.summary.months)} against the same
             months in {answer.summary.years_compared} other years.
+            {unfinished && endsAfter(answer.summary, unfinished)
+              ? ` ${formatMonth(unfinished)} is only part way through, so it is left out.`
+              : ''}
           </p>
         </>
       )}
       {answer && !answer.summary && hasAnswer(answer.coverage) && (
         <p className="headline muted">
-          There is too little history here to say whether this is more fire than usual.
+          {unfinished && selection.from === unfinished
+            ? `${formatMonth(unfinished)} is only part way through, so there is nothing `
+              + 'to weigh it against yet. Choose an earlier month as well.'
+            : 'There is too little history here to say whether this is more fire than usual.'}
         </p>
       )}
       {answer && <EstimatedNote answer={answer} />}
@@ -70,6 +79,19 @@ export function StatsPanel({ selection, placeName }: StatsPanelProps) {
       {stats.status === 'error' && <p className="warn-box" role="alert">{stats.detail}</p>}
     </section>
   )
+}
+
+/** The month the record is still part way through, if the answer reaches it. */
+function unfinishedMonth(answer: ActivityResponse | null): string | null {
+  if (!answer?.data_through || isMonthEnd(answer.data_through)) return null
+  const month = answer.data_through.slice(0, 7)
+  return answer.months.some((m) => m.month === month) ? month : null
+}
+
+/** Does the summary stop before `month`? */
+function endsAfter(summary: NonNullable<ActivityResponse['summary']>, month: string): boolean {
+  const last = `${summary.year}-${String(summary.months[summary.months.length - 1]).padStart(2, '0')}`
+  return last < month
 }
 
 /** Where the answer came from, and what is still happening if it is not ready. */

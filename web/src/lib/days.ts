@@ -49,6 +49,18 @@ export function monthEndDay(epoch: string, month: string): number {
   return dateToDay(epoch, next) - 1
 }
 
+/** Is this YYYY-MM-DD the last day of its month? */
+export function isMonthEnd(date: string): boolean {
+  const [y, m, d] = date.split('-').map(Number)
+  return d === new Date(Date.UTC(y, m, 0)).getUTCDate()
+}
+
+/** The month before this one, YYYY-MM. */
+export function previousMonth(month: string): string {
+  const [y, m] = month.split('-').map(Number)
+  return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
+}
+
 /** "2023-06" to "June 2023". */
 export function formatMonth(month: string): string {
   const [y, m] = month.split('-').map(Number)

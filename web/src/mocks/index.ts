@@ -2,7 +2,10 @@
 // Shapes come from src/types.ts and must stay identical to the server's.
 
 import { cellCentre, cellIndex, distanceKm } from '../lib/geo'
-import { dateToDay, dayToDate, dayToMonth, monthEndDay, monthRange, monthStartDay, periodLabel, SWITCH_MONTH } from '../lib/days'
+import {
+  dateToDay, dayToDate, dayToMonth, isMonthEnd, monthEndDay, monthRange, monthStartDay,
+  periodLabel, previousMonth, SWITCH_MONTH,
+} from '../lib/days'
 import type {
   AboutResponse, ActivityMonth, ActivityResponse, ActivitySummary, Coverage, HotspotArrays,
   OutlookResponse, Selection, StatsResponse, StatsYear, TopAreasResponse, WeatherResponse,
@@ -135,7 +138,7 @@ export async function activity(selection: Selection): Promise<ActivityResponse> 
     curve_source: 'quebec',
     data_through: h.dataThrough,
     months,
-    summary: summarise(all, months),
+    summary: summarise(all, months, h.dataThrough),
     detail: null,
   }
 }
@@ -144,10 +147,15 @@ export async function activity(selection: Selection): Promise<ActivityResponse> 
  * The server compares the last year in the range, over the months of the range, with the
  * same months in every other year (harmonize/query.py: summarize). The mock does the
  * same, down to the wording, so switching VITE_USE_MOCKS off changes nothing on screen.
+ *
+ * A month the record only covers part of is left out, so half a month is never weighed
+ * against whole ones. Nothing but the unfinished month is left: no summary at all.
  */
 const MIN_COMPARISON_YEARS = 5
 
-function summarise(all: ActivityMonth[], months: ActivityMonth[]): ActivitySummary | null {
+function summarise(all: ActivityMonth[], chosen: ActivityMonth[], through: string): ActivitySummary | null {
+  if (chosen.length === 0) return null
+  const months = finishedOnly(chosen, through)
   if (months.length === 0) return null
   const first = months[0].month
   const last = months[months.length - 1].month
@@ -190,6 +198,15 @@ function summarise(all: ActivityMonth[], months: ActivityMonth[]): ActivitySumma
       higherBefore.length ? Math.max(...higherBefore) : null,
       Math.min(...others.map(([y]) => y))),
   }
+}
+
+/** The chosen months, stopping before a month the record is still part-way through. */
+function finishedOnly(chosen: ActivityMonth[], through: string): ActivityMonth[] {
+  const unfinished = through.slice(0, 7)
+  const last = chosen[chosen.length - 1].month
+  if (isMonthEnd(through) || unfinished > last) return chosen
+  const cap = previousMonth(unfinished)
+  return chosen.filter((m) => m.month <= cap)
 }
 
 function sentenceFor(label: string, total: number, usual: number, ratio: number | null,

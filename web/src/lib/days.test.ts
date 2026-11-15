@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  dateToDay, dayToDate, dayToMonth, formatDate, formatMonth, monthEndDay, monthRange, monthStartDay,
-  periodLabel,
+  dateToDay, dayToDate, dayToMonth, formatDate, formatMonth, isMonthEnd, monthEndDay, monthRange,
+  monthStartDay, periodLabel, previousMonth,
 } from './days'
 
 const EPOCH = '2000-01-01'
@@ -29,6 +29,20 @@ describe('days', () => {
     expect(dayToDate(EPOCH, monthEndDay(EPOCH, '2023-06'))).toBe('2023-06-30')
     expect(dayToDate(EPOCH, monthEndDay(EPOCH, '2024-02'))).toBe('2024-02-29')
     expect(dayToDate(EPOCH, monthEndDay(EPOCH, '2023-12'))).toBe('2023-12-31')
+  })
+
+  it('knows when a month has run out', () => {
+    expect(isMonthEnd('2026-11-14')).toBe(false)
+    expect(isMonthEnd('2026-11-30')).toBe(true)
+    expect(isMonthEnd('2024-02-29')).toBe(true)
+    expect(isMonthEnd('2023-02-28')).toBe(true)
+    expect(isMonthEnd('2024-02-28')).toBe(false)
+    expect(isMonthEnd('2026-12-31')).toBe(true)
+  })
+
+  it('steps back a month across a year end', () => {
+    expect(previousMonth('2026-11')).toBe('2026-10')
+    expect(previousMonth('2026-01')).toBe('2025-12')
   })
 
   it('names a summary period the way the server does', () => {
