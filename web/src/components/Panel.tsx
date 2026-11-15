@@ -1,35 +1,25 @@
-import type { ReactNode } from 'react'
 import type { PanelAnswer, PanelState } from '../hooks/usePanel'
 import type { QueryState } from '../hooks/useSelectionQuery'
-import { isMonthEnd, periodLabel, SWITCH_MONTH } from '../lib/days'
+import { formatDate, isMonthEnd } from '../lib/days'
 import { count, megawatts, position } from '../lib/format'
 import { hasAnswer } from '../types'
 import type {
-  AboutResponse, ActivityResponse, Coverage, HotspotArrays, Selection, StatsResponse, TopAreasResponse,
-  WeatherResponse,
+  ActivityResponse, Coverage, HotspotArrays, Selection, StatsResponse, TopAreasResponse,
 } from '../types'
 import type { View } from '../view'
 import { ActivityChart } from './ActivityChart'
 import { Downloads } from './Downloads'
 import { Outlook } from './Outlook'
 import { TopAreas } from './TopAreas'
-import { WeatherStrip } from './WeatherStrip'
-import { YearChart } from './YearChart'
 
 export interface PanelProps {
   view: View
   selection: Selection | null
   placeName: string | null
   panel: PanelState
-  weather: QueryState<WeatherResponse>
   topAreas: QueryState<TopAreasResponse>
-  about: AboutResponse | null
   hotspots: HotspotArrays | null
-  /** The last day the record holds, YYYY-MM-DD. */
-  dataThrough?: string
   onPick: (lat: number, lon: number, name: string | null) => void
-  /** Open the sheet that documents and validates the harmonization. */
-  onMethod: () => void
   /** The map's canvas, for the image export. */
   getCanvas: () => HTMLCanvasElement | null
 }
@@ -65,91 +55,72 @@ export function Panel(props: PanelProps) {
   )
 }
 
-function Answer({ selection, placeName, answer, weather, hotspots, onMethod, getCanvas }: PanelProps & {
+function Answer({ selection, placeName, answer, hotspots, getCanvas }: PanelProps & {
   selection: Selection
   answer: PanelAnswer
 }) {
   const activity = answer.activity.ok ? answer.activity.data : null
   const stats = answer.stats.ok ? answer.stats.data : null
-
   const where = position(selection.lat, selection.lon)
-  const head = (
-    <header className="place">
-      <h2>{placeName ?? where}</h2>
-      <p className="place-sub">
-        {placeName ? `${where} · ` : ''}{selection.radius_km} km radius · {selection.from && selection.to ? monthSpan(selection.from, selection.to) : 'full record'}
-      </p>
-    </header>
-  )
 
-  const problems = (
+  return (
     <>
+      <header className="place">
+        <h2>{placeName ?? where}</h2>
+        <p className="place-sub">
+          Within {selection.radius_km} km · {selection.from && selection.to ? monthSpan(selection.from, selection.to) : 'full record'}
+        </p>
+      </header>
+
       {!answer.activity.ok && <p className="warn-box" role="alert">{answer.activity.detail}</p>}
       {!answer.stats.ok && answer.stats.detail !== (answer.activity.ok ? null : answer.activity.detail) && (
         <p className="warn-box" role="alert">{answer.stats.detail}</p>
       )}
       {activity && <CoverageNote coverage={activity.coverage} progress={activity.progress} detail={activity.detail} />}
-    </>
-  )
 
-  const finding = activity && hasAnswer(activity.coverage) && (
-    <Finding activity={activity} selection={selection} onMethod={onMethod} />
-  )
-  const measured = stats && hasAnswer(stats.coverage) && <Measured stats={stats} />
-  // The outlook lands after the rest (it waits on NASA POWER weather); hold its place.
-  const outlook = answer.outlook === null
-    ? (
-      <section className="outlook is-loading" aria-busy="true">
-        <h3>Outlook, next 14 days</h3>
-        <p className="small muted">Retrieving NASA POWER weather…</p>
-      </section>
-    )
-    : answer.outlook.ok ? <Outlook data={answer.outlook.data} /> : null
-  const years = stats && hasAnswer(stats.coverage) && stats.detections > 0 && <YearChart years={stats.by_year} />
-  const tail = (
-    <>
+      {activity && hasAnswer(activity.coverage) && <Finding activity={activity} selection={selection} />}
+      {stats && hasAnswer(stats.coverage) && <Measured stats={stats} />}
+      {/* The outlook lands after the rest (it waits on weather); hold its place. */}
+      {answer.outlook === null
+        ? (
+          <section className="outlook is-loading" aria-busy="true">
+            <h3>Outlook, next 14 days</h3>
+            <div className="skeleton" role="status" aria-label="Computing the outlook"><i className="sk sk-block" style={{ height: 72 }} /></div>
+          </section>
+        )
+        : answer.outlook.ok ? <Outlook data={answer.outlook.data} /> : null}
       <Downloads selection={selection} hotspots={hotspots} getCanvas={getCanvas} />
     </>
   )
-
-  return <>{head}{problems}{finding}{measured}{years}{outlook}<WeatherStrip state={weather} />{tail}</>
 }
 
 const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** "2023-05", "2023-08" reads "May 2023 → Aug 2023"; one month reads "Jun 2023". */
+/** "2023-05", "2023-08" reads "May – Aug 2023"; one month reads "Jun 2023". */
 export function monthSpan(from: string, to: string): string {
   const name = (m: string) => `${MONTH_SHORT[Number(m.slice(5, 7)) - 1]} ${m.slice(0, 4)}`
-  return from === to ? name(from) : `${name(from)} → ${name(to)}`
-}
-
-/** What kind of number follows: harmonized, measured, or estimated. */
-function Kind({ kind, children }: { kind: 'measured' | 'estimate' | 'corrected'; children: ReactNode }) {
-  return <span className={`kind kind-${kind}`}>{children}</span>
+  if (from === to) return name(from)
+  if (from.slice(0, 4) === to.slice(0, 4)) return `${MONTH_SHORT[Number(from.slice(5, 7)) - 1]} – ${name(to)}`
+  return `${name(from)} – ${name(to)}`
 }
 
 function ratioText(ratio: number): string {
+  if (ratio >= 100) return 'Over 100×'
   return `${ratio >= 10 ? ratio.toFixed(0) : ratio.toFixed(1)}×`
 }
 
-/** The scale runs from a tenth of the baseline to two hundred times it, in logarithms. */
-const SCALE_MIN = -1
-const SCALE_MAX = Math.log10(200)
-const scaleAt = (ratio: number) => (Math.log10(ratio) - SCALE_MIN) / (SCALE_MAX - SCALE_MIN) * 100
+/** The ratio in a word, and the tone the figure is set in. */
+function verdict(ratio: number): { tone: 'far' | 'high' | 'near' | 'low'; word: string } {
+  if (ratio >= 5) return { tone: 'far', word: 'Far above normal' }
+  if (ratio >= 1.5) return { tone: 'high', word: 'Above normal' }
+  if (ratio > 0.67) return { tone: 'near', word: 'Near normal' }
+  return { tone: 'low', word: 'Below normal' }
+}
 
-/** Where the period sits against its baseline, on a log scale with the baseline at 1×. */
-function RatioScale({ ratio }: { ratio: number }) {
-  const at = Math.min(100, Math.max(0, scaleAt(Math.max(ratio, 0.001))))
-  return (
-    <div className="ratio-scale" role="img" aria-label={`${ratioText(ratio)} the baseline, on a scale from one tenth to two hundred times`}>
-      <div className="ratio-track"><i style={{ left: `${at}%` }} /></div>
-      <div className="ratio-ticks">
-        {[[0.1, '÷10'], [1, 'baseline'], [10, '×10'], [100, '×100']].map(([value, label]) => (
-          <span key={label} style={{ left: `${scaleAt(value as number)}%` }}>{label}</span>
-        ))}
-      </div>
-    </div>
-  )
+function ordinal(n: number): string {
+  const tail = n % 100
+  if (tail >= 11 && tail <= 13) return `${n}th`
+  return `${n}${['th', 'st', 'nd', 'rd'][n % 10] ?? 'th'}`
 }
 
 /** One tick per year compared, highest first; this period's place among them is lit. */
@@ -159,79 +130,59 @@ function RankStrip({ rank, total }: { rank: number; total: number }) {
       <div className="rank-ticks" aria-hidden="true">
         {Array.from({ length: total }, (_, i) => <i key={i} className={i + 1 === rank ? 'is-here' : ''} />)}
       </div>
-      <p><b>{rank}</b> of {total} years, highest first</p>
+      <p>{rank === 1 ? 'Highest' : `${ordinal(rank)} highest`} of {total} years</p>
     </div>
   )
 }
 
-/** Harmonized activity against its baseline: the one quantity comparable across 2012. */
-function Finding({ activity, selection, onMethod }: {
-  activity: ActivityResponse
-  selection: Selection
-  onMethod: () => void
-}) {
+/** How much fire the period held against what is usual for the same months. */
+function Finding({ activity, selection }: { activity: ActivityResponse; selection: Selection }) {
   // The record stops part-way through the current month, and a part month is never
   // compared with whole ones, so the comparison can cover less than the chosen range.
   const unfinished = unfinishedMonth(activity)
   const { summary } = activity
-  const estimated = activity.months.filter((m) => m.estimated)
-  const low = estimated.reduce((sum, m) => sum + m.low, 0)
-  const high = estimated.reduce((sum, m) => sum + m.high, 0)
+  const tone = summary?.ratio != null ? verdict(summary.ratio) : null
 
   return (
-    <section className="finding" aria-label="Harmonized fire activity against baseline">
-      <h3>Fire activity <Kind kind="corrected">harmonized</Kind></h3>
-      {summary
-        ? (
-          <>
-            {summary.ratio !== null
-              ? (
-                <>
-                  <p className="headline">
-                    <b>{ratioText(summary.ratio)}</b>
-                    <span>the median of the same months in {summary.years_compared} other years</span>
+    <section className="finding" aria-label="Fire activity against what is usual">
+      <div className={`hero ${tone ? `tone-${tone.tone}` : ''}`}>
+        <h3>Fire activity</h3>
+        {summary
+          ? (
+            <>
+              {summary.ratio !== null && tone
+                ? (
+                  <>
+                    <p className="hero-figure">
+                      <b>{ratioText(summary.ratio)}</b>
+                      <span>the usual for these months</span>
+                    </p>
+                    <p className="hero-word"><i />{tone.word}</p>
+                  </>
+                )
+                // A baseline of zero has no ratio. Say what was seen instead of dividing by it.
+                : (
+                  <p className="hero-plain">
+                    {summary.total > 0
+                      ? 'Fire was seen here in months that usually have none.'
+                      : 'No fire in these months, which is usual here.'}
                   </p>
-                  <RatioScale ratio={summary.ratio} />
-                </>
-              )
-              // A baseline of zero has no ratio. Say what was seen instead of dividing by it.
-              : (
-                <p className="note-box">
-                  {summary.total > 0
-                    ? `Baseline median is 0 cell-days over ${summary.years_compared} years, so no ratio is defined.`
-                    : `No fire activity in these months, and none in the median of ${summary.years_compared} other years.`}
-                </p>
+                )}
+              {summary.total > 0 && <RankStrip rank={summary.rank} total={summary.years_compared + 1} />}
+              {unfinished && endsAfter(summary, unfinished) && (
+                <p className="small muted">{unfinished} is still in progress and left out.</p>
               )}
-            {summary.total > 0 && <RankStrip rank={summary.rank} total={summary.years_compared + 1} />}
-            <dl className="kv">
-              <div><dt>{periodLabel(summary.year, summary.months)}</dt><dd>{count(summary.total)} cell-days</dd></div>
-              <div><dt>Baseline median</dt><dd>{count(summary.median)} cell-days</dd></div>
-            </dl>
-            {unfinished && endsAfter(summary, unfinished) && (
-              <p className="small muted">{unfinished} is incomplete and excluded.</p>
-            )}
-          </>
-        )
-        : (
-          <p className="note-box">
-            {unfinished && selection.from === unfinished
-              ? `${unfinished} is incomplete; no baseline comparison. Extend the period to an earlier month.`
-              : 'Insufficient history for a baseline comparison.'}
-          </p>
-        )}
-      {estimated.length > 0
-        ? (
-          <p className="small kind-line">
-            <Kind kind="estimate">estimated</Kind>{' '}
-            {estimated.length} of {activity.months.length} months precede {SWITCH_MONTH} and are converted from MODIS
-            (80% interval {count(low)}–{count(high)} cell-days).
-          </p>
-        )
-        : activity.months.length > 0 && (
-          <p className="small kind-line"><Kind kind="measured">measured</Kind> All months observed by VIIRS; no conversion applied.</p>
-        )}
+            </>
+          )
+          : (
+            <p className="hero-plain">
+              {unfinished && selection.from === unfinished
+                ? 'This month is still in progress, so there is nothing to compare it with yet. Extend the period to an earlier month.'
+                : 'Not enough history here for a comparison.'}
+            </p>
+          )}
+      </div>
       <ActivityChart months={activity.months} />
-      <button type="button" className="link" onClick={onMethod}>Method and validation</button>
     </section>
   )
 }
@@ -271,36 +222,29 @@ function CoverageNote({ coverage, progress, detail }: {
   return null
 }
 
-/** Raw detections and FRP: measured, never converted, never compared across 2012. */
+/** What the satellites saw in the area and period. */
 function Measured({ stats }: { stats: StatsResponse }) {
   if (stats.detections === 0) {
     return (
       <section className="measured">
-        <h3>Detections <Kind kind="measured">raw</Kind></h3>
-        <p className="note-box">0 detections in this area and period. The archive covers it; this is an observed zero.</p>
+        <h3>Detections</h3>
+        <p className="note-box">No fire was detected in this area and period.</p>
       </section>
     )
   }
-  const { this_year: now, typical_year: usual } = stats
-  const sensors = [...new Set(stats.by_year.map((y) => y.sensor))]
-
   return (
     <section className="measured">
-      <h3>Detections <Kind kind="measured">raw</Kind></h3>
-      <dl className="figures">
-        <div><dt>Detections</dt><dd>{count(stats.detections)}</dd></div>
-        <div><dt>ΣFRP</dt><dd>{megawatts(stats.sum_frp)}</dd></div>
-        <div><dt>Mean FRP</dt><dd>{megawatts(stats.mean_frp)}</dd></div>
-        <div>
-          <dt>Peak day</dt>
-          <dd>{stats.peak_day ? <>{stats.peak_day.date}<span className="sub">{count(stats.peak_day.detections)} detections</span></> : 'n/a'}</dd>
-        </div>
+      <h3>Detections</h3>
+      <dl className="stats">
+        <div><dt>Fire detections</dt><dd>{count(stats.detections)}</dd></div>
+        <div><dt>Total fire power</dt><dd>{megawatts(stats.sum_frp)}</dd></div>
+        {stats.peak_day && (
+          <div className="stats-wide">
+            <dt>Busiest day</dt>
+            <dd>{formatDate(stats.peak_day.date)}<span>{count(stats.peak_day.detections)} detections</span></dd>
+          </div>
+        )}
       </dl>
-      {sensors.length > 1 && <SensorSplit years={stats.by_year} />}
-      <p className="small muted">
-        {sensors.length > 1 ? 'Pixel detections, uncorrected. MODIS and VIIRS counts are not comparable.' : `Pixel detections from ${sensors[0]}, uncorrected.`}
-        {now && usual && usual.detections > 0 && ` ${now.year} to date: ${(now.detections / usual.detections).toFixed(2)}× the median year.`}
-      </p>
     </section>
   )
 }
@@ -323,22 +267,6 @@ function Skeleton() {
         <i className="sk sk-figure" /><i className="sk sk-figure" /><i className="sk sk-figure" /><i className="sk sk-figure" />
       </div>
       <i className="sk sk-block" style={{ height: 118 }} />
-    </div>
-  )
-}
-
-/** How the period's detections divide between the two sensors. */
-function SensorSplit({ years }: { years: StatsResponse['by_year'] }) {
-  const modis = years.filter((y) => y.sensor === 'MODIS').reduce((sum, y) => sum + y.detections, 0)
-  const viirs = years.filter((y) => y.sensor === 'VIIRS').reduce((sum, y) => sum + y.detections, 0)
-  const total = Math.max(1, modis + viirs)
-  return (
-    <div className="split">
-      <div className="split-bar" aria-hidden="true">
-        <i className="split-modis" style={{ width: `${(modis / total) * 100}%` }} />
-        <i className="split-viirs" style={{ width: `${(viirs / total) * 100}%` }} />
-      </div>
-      <p><span>MODIS {count(modis)}</span><span>VIIRS {count(viirs)}</span></p>
     </div>
   )
 }

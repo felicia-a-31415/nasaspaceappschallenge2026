@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
-import { buildCalendar, MONTH_LABELS, MONTH_STARTS, slotDate, slotOf, SLOTS, WINDOW_DAYS } from '../lib/calendar'
-import { SWITCH_MONTH } from '../lib/days'
-import { coordinates, count } from '../lib/format'
-import { Z_COLOURS, Z_LABELS, zClass } from '../map/anomaly'
+import { buildCalendar, monthGrid, monthSlots, MONTH_LABELS, slotDate, SLOTS } from '../lib/calendar'
+import type { MonthCell } from '../lib/calendar'
+import { formatDate, SWITCH_MONTH } from '../lib/days'
+import { coordinates, megawatts, plural } from '../lib/format'
+import { Z_COLOURS, zClass } from '../map/anomaly'
 import { cssColour, rampColour } from '../map/colourRamp'
 import type { HotspotArrays, Selection } from '../types'
 import type { Encoding } from './MapControls'
@@ -14,36 +15,46 @@ export interface CalendarViewProps {
   selection: Selection | null
   placeName: string | null
   encoding: Encoding
-  /** The chosen period, YYYY-MM, outlined on the grid. */
+  /** The chosen period, YYYY-MM. */
   from: string
   to: string
-  /** A day was clicked: show its month on the map. */
+  /** Outline the chosen period. Off when the period is the whole record. */
+  highlight: boolean
+  /** A month was clicked: show it on the map. */
   onPick: (date: string) => void
 }
 
-const LEFT = 46
-const TOP = 20
-const RIGHT = 78
-const EMPTY = '#12161a'
-const INK = '#b6b3ac'
-const DIM = '#8d8b85'
-const FONT = '10.5px "IBM Plex Mono", ui-monospace, monospace'
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const SWITCH_YEAR = Number(SWITCH_MONTH.slice(0, 4))
 
-/** ΣFRP runs over six orders of magnitude, so its colour scale is logarithmic. */
+/** Fire power runs over six orders of magnitude, so its colour scale is logarithmic. */
 function frpFraction(value: number, max: number): number {
-  return max > 0 ? Math.log10(1 + value) / Math.log10(1 + max) : 0
+  return max > 0 ? 0.1 + 0.9 * (Math.log10(1 + value) / Math.log10(1 + max)) : 0
 }
 
-function signed(value: number): string {
-  return `${value >= 0 ? '+' : '−'}${Math.abs(value).toFixed(1)}`
+function times(ratio: number): string {
+  if (ratio >= 100) return 'over 100×'
+  return `${ratio >= 10 ? ratio.toFixed(0) : ratio.toFixed(1)}×`
+}
+
+/** One sentence placing the month against the same month in other years. */
+function compared(cell: MonthCell): string | null {
+  if (cell.usual === null) return null
+  const name = MONTH_NAMES[cell.month - 1]
+  if (cell.usual < 0.5) return cell.cellDays > 0 ? `Fire is rare here in ${name}.` : null
+  if (cell.cellDays === 0) return `Usually there is some fire in ${name}.`
+  const ratio = cell.cellDays / cell.usual
+  if (ratio >= 0.8 && ratio <= 1.25) return `About usual for ${name}.`
+  return ratio > 1 ? `${times(ratio)} the usual ${name}.` : `Less than usual for ${name}.`
 }
 
 /**
- * Year by day-of-year matrix of burning activity for the area of interest, MODIS and
- * VIIRS in one frame. Encoding A colours each day by ΣFRP; encoding B by the standardized
- * anomaly of active cells against the same sensor's other years.
+ * When fire burned in the area: one row per year, newest first, one square per month.
+ * A square is brighter the more fire the month held (or, in the anomaly encoding, the
+ * further it sat above the same month in other years). Hovering a square says what it
+ * holds in words; clicking it opens that month on the map.
  */
-export function CalendarView({ hotspots, selection, placeName, encoding, from, to, onPick }: CalendarViewProps) {
+export function CalendarView({ hotspots, selection, placeName, encoding, from, to, highlight, onPick }: CalendarViewProps) {
   const lat = selection?.lat ?? null
   const lon = selection?.lon ?? null
   const radius = selection?.radius_km ?? null
@@ -51,208 +62,164 @@ export function CalendarView({ hotspots, selection, placeName, encoding, from, t
     () => buildCalendar(hotspots, lat !== null && lon !== null && radius !== null ? { lat, lon, radius_km: radius } : null),
     [hotspots, lat, lon, radius],
   )
+  const grid = useMemo(() => monthGrid(calendar), [calendar])
 
   const frame = useRef<HTMLDivElement>(null)
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const [size, setSize] = useState({ width: 0, height: 0 })
-  const [hover, setHover] = useState<{ row: number; slot: number } | null>(null)
+  const [hover, setHover] = useState<{ at: number; left: number; top: number; right: number; bottom: number } | null>(null)
 
-  useEffect(() => {
-    const element = frame.current
-    if (!element) return
-    const observer = new ResizeObserver(() => setSize({ width: element.clientWidth, height: element.clientHeight }))
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-
-  const rows = calendar.years.length
-  const cellW = Math.max(1, (size.width - LEFT - RIGHT) / SLOTS)
-  const cellH = Math.max(4, Math.min(26, (size.height - TOP - 4) / rows))
-
-  useEffect(() => {
-    const element = canvas.current
-    if (!element || !size.width) return
-    const ratio = window.devicePixelRatio || 1
-    element.width = Math.round(size.width * ratio)
-    element.height = Math.round(size.height * ratio)
-    const ctx = element.getContext('2d')
-    if (!ctx) return
-    ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
-    ctx.clearRect(0, 0, size.width, size.height)
-    ctx.font = FONT
-    ctx.textBaseline = 'middle'
-
-    const maxYear = Math.max(1, ...calendar.yearCells)
-    for (let row = 0; row < rows; row++) {
-      const y = TOP + row * cellH
-      for (let slot = 0; slot < SLOTS; slot++) {
-        const at = row * SLOTS + slot
-        const cells = calendar.cells[at]
-        if (Number.isNaN(cells)) continue
-        let colour = EMPTY
-        if (encoding === 'frp') {
-          const frp = calendar.frp[at]
-          if (frp > 0) colour = cssColour(rampColour(frpFraction(frp, calendar.maxFrp)))
-        } else {
-          const z = calendar.z[at]
-          // A day with no fire and no expectation of any is empty, not "normal".
-          if (!Number.isNaN(z) && (cells > 0 || calendar.mean[at] >= 0.5)) colour = cssColour(Z_COLOURS[zClass(z)])
-        }
-        ctx.fillStyle = colour
-        ctx.fillRect(LEFT + slot * cellW, y, Math.ceil(cellW), cellH - 1)
-      }
-      ctx.fillStyle = INK
-      ctx.textAlign = 'right'
-      ctx.fillText(String(calendar.years[row]), LEFT - 8, y + cellH / 2)
-      // Annual cell-days, as a bar and a figure.
-      const x = LEFT + SLOTS * cellW + 8
-      ctx.fillStyle = '#3a4048'
-      ctx.fillRect(x, y + 2, (calendar.yearCells[row] / maxYear) * 22, Math.max(1, cellH - 5))
-      ctx.fillStyle = DIM
-      ctx.textAlign = 'left'
-      ctx.fillText(count(calendar.yearCells[row]), x + 27, y + cellH / 2)
-    }
-
-    ctx.fillStyle = DIM
-    ctx.textAlign = 'left'
-    MONTH_STARTS.forEach((start, month) => {
-      const x = LEFT + start * cellW
-      ctx.fillStyle = 'rgba(236, 233, 226, 0.16)'
-      if (month > 0) ctx.fillRect(Math.round(x) - 0.5, TOP - 4, 1, rows * cellH + 4)
-      ctx.fillStyle = DIM
-      ctx.fillText(MONTH_LABELS[month].toUpperCase(), x + 3, 8)
+  const point = (at: number, element: HTMLElement) => {
+    const box = frame.current!.getBoundingClientRect()
+    const cell = element.getBoundingClientRect()
+    setHover({
+      at,
+      left: cell.left - box.left,
+      top: cell.top - box.top,
+      right: box.right - cell.right,
+      bottom: box.bottom - cell.bottom,
     })
-    ctx.fillText('CELL-DAYS', LEFT + SLOTS * cellW + 8, 8)
-
-    // The sensor transition: a step between the last MODIS day and the first VIIRS day.
-    const [switchYear, switchMonth] = SWITCH_MONTH.split('-').map(Number)
-    const switchRow = calendar.years.indexOf(switchYear)
-    if (switchRow >= 0) {
-      const x = LEFT + slotOf(switchMonth, 1) * cellW
-      const y = TOP + switchRow * cellH
-      ctx.strokeStyle = '#f0c36a'
-      ctx.lineWidth = 1.5
-      ctx.beginPath()
-      ctx.moveTo(LEFT, y + cellH - 0.5)
-      ctx.lineTo(x, y + cellH - 0.5)
-      ctx.lineTo(x, y - 0.5)
-      ctx.lineTo(LEFT + SLOTS * cellW, y - 0.5)
-      ctx.stroke()
-    }
-
-    // The chosen period, outlined in every row it touches.
-    const [fromYear, fromMonth] = from.split('-').map(Number)
-    const [toYear, toMonth] = to.split('-').map(Number)
-    ctx.strokeStyle = '#6cc0ff'
-    ctx.lineWidth = 1.5
-    for (let row = 0; row < rows; row++) {
-      const year = calendar.years[row]
-      if (year < fromYear || year > toYear) continue
-      const a = year === fromYear ? MONTH_STARTS[fromMonth - 1] : 0
-      const b = year === toYear ? (toMonth === 12 ? SLOTS : MONTH_STARTS[toMonth]) : SLOTS
-      ctx.strokeRect(LEFT + a * cellW, TOP + row * cellH - 0.5, (b - a) * cellW, cellH)
-    }
-
-    if (hover) {
-      ctx.strokeStyle = '#ffffff'
-      ctx.lineWidth = 1
-      ctx.strokeRect(LEFT + hover.slot * cellW - 0.5, TOP + hover.row * cellH - 0.5, Math.max(3, cellW) + 1, cellH)
-    }
-  }, [calendar, encoding, size, rows, cellW, cellH, from, to, hover])
-
-  const locate = (event: React.MouseEvent) => {
-    const box = canvas.current!.getBoundingClientRect()
-    const slot = Math.floor((event.clientX - box.left - LEFT) / cellW)
-    const row = Math.floor((event.clientY - box.top - TOP) / cellH)
-    if (slot < 0 || slot >= SLOTS || row < 0 || row >= rows) return null
-    return Number.isNaN(calendar.cells[row * SLOTS + slot]) ? null : { row, slot }
   }
 
-  const at = hover ? hover.row * SLOTS + hover.slot : -1
-  const hoverDate = hover ? slotDate(calendar.years[hover.row], hover.slot) : null
+  const colour = (cell: MonthCell): string | undefined => {
+    if (encoding === 'frp') return cell.frp > 0 ? cssColour(rampColour(frpFraction(cell.frp, grid.maxFrp))) : undefined
+    // A month with no fire and no expectation of any is empty, not "usual".
+    if (cell.z === null || (cell.cellDays === 0 && (cell.usual ?? 0) < 0.5)) return undefined
+    return cssColour(Z_COLOURS[zClass(cell.z)])
+  }
+
+  // Newest year first: the recent seasons are the ones being asked about.
+  const rows = grid.years.map((_, row) => row).reverse()
+  const topYear = Math.max(1, ...grid.yearFireDays)
   const area = selection
-    ? `${placeName ?? coordinates(selection.lat, selection.lon)} · R ${selection.radius_km} km`
-    : 'Quebec, full extent'
+    ? `${placeName ?? coordinates(selection.lat, selection.lon)}, within ${selection.radius_km} km`
+    : 'All of Quebec'
+  const hovered = hover ? grid.cells[hover.at] : null
+  const eraRow = grid.years.includes(SWITCH_YEAR) && grid.years[0] < SWITCH_YEAR
 
   return (
-    <section className="calendar" aria-label="Burning activity calendar">
-      <header className="calendar-head">
+    <section className="calendar" aria-label="Fire calendar">
+      <header className="cal-head">
         <div>
-          <p className="eyebrow">Burning activity calendar · day of year × year</p>
-          <h2>{area}</h2>
+          <h2>When fire burned</h2>
+          <p>{area}</p>
         </div>
-        <dl className="kv calendar-meta">
-          <div><dt>Encoding</dt><dd>{encoding === 'frp' ? 'ΣFRP per day, MW (log)' : 'z of active cells per day'}</dd></div>
-          <div><dt>Grid</dt><dd>0.1° × 0.1° · 1 d</dd></div>
-          {encoding === 'anomaly' && <div><dt>Baseline</dt><dd>same sensor, other years, DOY ±{WINDOW_DAYS} d</dd></div>}
-        </dl>
+        <p className="cal-how">
+          Each square is one month.{' '}
+          {encoding === 'frp' ? 'Brighter means more fire.' : 'Colour compares the month with the same month in other years.'}{' '}
+          Click a month to see it on the map.
+        </p>
       </header>
 
-      <div className="calendar-frame" ref={frame}>
-        <canvas
-          ref={canvas}
-          role="img"
-          aria-label={`Daily burning activity, ${calendar.years[0]} to ${calendar.years[rows - 1]}, one row per year`}
-          style={{ width: size.width, height: size.height, cursor: hover ? 'pointer' : 'default' }}
-          onMouseMove={(event) => {
-            const next = locate(event)
-            setHover((now) => (now?.row === next?.row && now?.slot === next?.slot ? now : next))
-          }}
-          onMouseLeave={() => setHover(null)}
-          onClick={(event) => {
-            const cell = locate(event)
-            const date = cell && slotDate(calendar.years[cell.row], cell.slot)
-            if (date) onPick(date)
-          }}
-        />
+      <div className="cal-frame" ref={frame} onMouseLeave={() => setHover(null)}>
+        <div className="cal-grid cal-months" aria-hidden="true">
+          <span />
+          {MONTH_LABELS.map((label) => <span key={label}>{label}</span>)}
+          <span className="cal-total-head">Days with fire</span>
+        </div>
+
+        <div className="cal-rows">
+          {rows.map((row) => {
+            const year = grid.years[row]
+            return (
+              <div key={year} className="cal-row-wrap">
+                <div className="cal-grid cal-row">
+                  <span className="cal-year">{year}</span>
+                  {grid.cells.slice(row * 12, row * 12 + 12).map((cell, m) => {
+                    const at = row * 12 + m
+                    const month = `${year}-${String(cell.month).padStart(2, '0')}`
+                    if (!cell.exists) return <i key={m} className="cal-cell is-none" />
+                    const chosen = highlight && month >= from && month <= to
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        className={`cal-cell ${chosen ? 'is-chosen' : ''} ${hover?.at === at ? 'is-hover' : ''}`}
+                        style={{ background: colour(cell) }}
+                        aria-label={`${MONTH_NAMES[m]} ${year}: ${cell.fireDays ? plural(cell.fireDays, 'day') + ' with fire' : 'no fire detected'}`}
+                        onMouseEnter={(event) => point(at, event.currentTarget)}
+                        onFocus={(event) => point(at, event.currentTarget)}
+                        onBlur={() => setHover(null)}
+                        onClick={() => onPick(`${month}-01`)}
+                      />
+                    )
+                  })}
+                  <span className="cal-total">
+                    <i style={{ width: `${(grid.yearFireDays[row] / topYear) * 100}%` }} />
+                    <b>{grid.yearFireDays[row]}</b>
+                  </span>
+                </div>
+                {eraRow && year === SWITCH_YEAR && (
+                  <p className="cal-era">
+                    <span>Newer satellite sensor from 2012. Earlier years were seen by an older one that picks up fewer fires.</span>
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {hover && hovered && (
+          <div
+            className="cal-tip"
+            role="status"
+            style={{
+              ...(hovered.month > 8 ? { right: hover.right } : { left: hover.left }),
+              ...(hover.top > hover.bottom ? { bottom: hover.bottom + 30 } : { top: hover.top + 30 }),
+            }}
+          >
+            <strong>{MONTH_NAMES[hovered.month - 1]} {hovered.year}</strong>
+            {hovered.fireDays === 0
+              ? <p>No fire detected.</p>
+              : (
+                <>
+                  <Days calendar={calendar} row={grid.years.indexOf(hovered.year)} month={hovered.month} />
+                  <dl>
+                    <div><dt>Days with fire</dt><dd>{hovered.fireDays}</dd></div>
+                    <div><dt>Busiest day</dt><dd>{formatDate(slotDate(hovered.year, hovered.peakSlot) ?? '').replace(/ \d{4}$/, '')}</dd></div>
+                    <div><dt>Total fire power</dt><dd>{megawatts(hovered.frp)}</dd></div>
+                  </dl>
+                </>
+              )}
+            {compared(hovered) && <p>{compared(hovered)}</p>}
+            <p className="cal-tip-hint">Click to open on the map</p>
+          </div>
+        )}
       </div>
 
-      <footer className="calendar-foot">
-        <p className="calendar-probe" aria-live="off">
-          {hover && hoverDate
-            ? (
-              <>
-                <b>{hoverDate}</b>
-                <span>{calendar.viirs[at] ? 'VIIRS' : 'MODIS'}</span>
-                <span>active cells <b>{count(calendar.cells[at])}</b></span>
-                <span>ΣFRP <b>{count(calendar.frp[at])} MW</b></span>
-                {Number.isNaN(calendar.z[at])
-                  ? <span>z n/a</span>
-                  : (
-                    <span>
-                      z <b>{signed(calendar.z[at])}</b> (μ {calendar.mean[at].toFixed(1)}, σ {calendar.sd[at].toFixed(1)}, n {calendar.samples[at]})
-                    </span>
-                  )}
-                <span className="calendar-hint">click: open month on map</span>
-              </>
-            )
-            : <span className="calendar-hint">Hover a day to read it. Click to open its month on the map.</span>}
-        </p>
-        <div className="calendar-key">
-          {encoding === 'frp'
-            ? (
-              <>
-                <span>ΣFRP</span>
-                <span>1</span>
-                <i
-                  className="calendar-ramp"
-                  style={{ background: `linear-gradient(90deg, ${Array.from({ length: 9 }, (_, i) => cssColour(rampColour(i / 8))).join(', ')})` }}
-                />
-                <span>{count(calendar.maxFrp)} MW</span>
-              </>
-            )
-            : (
-              <>
-                <span>z</span>
-                {Z_COLOURS.map((colour, i) => (
-                  <span key={Z_LABELS[i]} className="calendar-class"><i style={{ background: cssColour(colour) }} />{Z_LABELS[i]}</span>
-                ))}
-              </>
-            )}
-          <span className="calendar-switch"><i />{SWITCH_MONTH} MODIS → VIIRS</span>
-          <span className="calendar-period"><i />selected period</span>
-        </div>
+      <footer className="cal-key">
+        {encoding === 'frp'
+          ? (
+            <>
+              <span>Less fire</span>
+              <i className="cal-ramp" style={{ background: `linear-gradient(90deg, ${Array.from({ length: 9 }, (_, i) => cssColour(rampColour(0.1 + (0.9 * i) / 8))).join(', ')})` }} />
+              <span>More fire</span>
+            </>
+          )
+          : (
+            <>
+              <span>Below usual</span>
+              <span className="cal-steps">{Z_COLOURS.map((c, i) => <i key={i} style={{ background: cssColour(c) }} />)}</span>
+              <span>Far above usual</span>
+            </>
+          )}
+        <span className="cal-key-item"><i className="cal-cell" />No fire</span>
+        {highlight && <span className="cal-key-item"><i className="cal-cell is-chosen" />Selected period</span>}
       </footer>
     </section>
+  )
+}
+
+/** The month's days as small bars, so the tip shows when in the month it burned. */
+function Days({ calendar, row, month }: { calendar: ReturnType<typeof buildCalendar>; row: number; month: number }) {
+  const [a, b] = monthSlots(month)
+  const days: number[] = []
+  for (let slot = a; slot < b; slot++) {
+    const v = calendar.cells[row * SLOTS + slot]
+    if (!Number.isNaN(v)) days.push(v)
+  }
+  const top = Math.max(1, ...days)
+  return (
+    <div className="cal-days" aria-hidden="true">
+      {days.map((v, i) => <i key={i} className={v ? '' : 'is-zero'} style={{ height: v ? `${Math.max(12, (v / top) * 100)}%` : undefined }} />)}
+    </div>
   )
 }

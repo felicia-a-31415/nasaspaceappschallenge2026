@@ -48,11 +48,9 @@ export function TopAreas({ state, onPick }: TopAreasProps) {
     )
   }
 
-  const sensor = areas[0].sensor
   return (
     <section className="top-areas">
       <h3>{TITLE}</h3>
-      <p className="small muted area-cols"><span>Total fire power</span></p>
       <ol className="area-list">
         {areas.map((area, index) => {
           const name = names[coords(area)]
@@ -73,9 +71,7 @@ export function TopAreas({ state, onPick }: TopAreasProps) {
           )
         })}
       </ol>
-      <p className="small muted">
-        10 km squares across the region, chosen period, {sensor} only. Numbered on the map.
-      </p>
+      <p className="small muted">Ranked by total fire power. Click one to go there.</p>
     </section>
   )
 }

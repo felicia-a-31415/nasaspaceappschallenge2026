@@ -1420,3 +1420,141 @@ button.link.ops-method { display: inline; align-self: auto; font-size: inherit; 
   .day-track { order: 5; flex-basis: 100%; }
   .day-readout { width: auto; margin-right: auto; }
 }
+
+/* --- the inspector, pared down ------------------------------------------------
+
+   The sheet answers four things and stops: how much fire against what is usual, what
+   was seen, what the coming fortnight looks like, and where in the region it was worst.
+   One card carries the headline; everything else is a quiet label over its content. */
+
+.side-scroll { gap: 22px; padding: 18px var(--pad) 22px; }
+.panel-body { gap: 22px; }
+.panel-body > section, .side-scroll > section { border-top: 0; padding-top: 0; gap: 10px; }
+.side h3 { font: 600 11.5px/1.3 var(--sans); letter-spacing: 0.02em; color: var(--ink-3); }
+.sheet-head { gap: 9px; padding: 16px var(--pad) 13px; }
+.sheet-head .brand h1 { font-size: 18px; }
+.telemetry { font: 400 11.5px/1.3 var(--sans); }
+
+.place { gap: 3px; }
+.place h2, .prompt h2 { font: 700 22px/1.2 var(--sans); letter-spacing: -0.015em; text-wrap: balance; }
+.place-sub { font: 400 12.5px/1.4 var(--sans); color: var(--ink-2); }
+
+/* The headline: a figure, a word for it, its place among the years. */
+.hero {
+  --tone: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px 15px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 9%, transparent), transparent 70%), var(--fill);
+  box-shadow: inset 0 0 0 1px var(--rule);
+}
+.hero.tone-far { --tone: #ff8f3f; }
+.hero.tone-high { --tone: #ffbe5c; }
+.hero.tone-low { --tone: #7fbdf0; }
+.hero-figure { display: flex; align-items: baseline; gap: 10px; font-size: 13px; line-height: 1.3; color: var(--ink-2); }
+.hero-figure b { flex: none; font: 700 42px/1 var(--sans); letter-spacing: -0.035em; color: var(--tone); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hero-word { display: flex; align-items: center; gap: 7px; margin-top: -4px; font: 600 13.5px/1.3 var(--sans); color: var(--ink); }
+.hero-word i { width: 8px; height: 8px; border-radius: 50%; background: var(--tone); }
+.hero-plain { font-size: 13.5px; line-height: 1.45; color: var(--ink); }
+.hero .rank { margin-top: 2px; }
+.rank-ticks { height: 12px; }
+.rank-ticks i { height: 5px; background: rgba(255, 255, 255, 0.16); }
+.rank-ticks i.is-here { height: 12px; background: var(--tone, #ffb347); }
+.rank p { color: var(--ink-2); }
+
+.activity-chart { margin: 2px 0 0; gap: 4px; }
+.activity-chart .eyebrow { font: 600 11.5px/1.3 var(--sans); letter-spacing: 0.02em; color: var(--ink-3); }
+.activity-chart .col-measured { fill: rgba(236, 233, 226, 0.86); }
+.chart-key { font-size: 11.5px; color: var(--ink-3); }
+.chart-key i { border-radius: 2px; }
+
+/* What was seen: two figures and the busiest day. */
+.stats { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stats > div { min-width: 0; padding: 10px 12px 11px; border-radius: 12px; background: var(--fill); }
+.stats dt { font-size: 12px; line-height: 1.3; color: var(--ink-2); }
+.stats dd { margin: 3px 0 0; font: 600 19px/1.2 var(--sans); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stats-wide { grid-column: 1 / -1; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.stats-wide dd { margin: 0; font-size: 14px; letter-spacing: 0; text-align: right; }
+.stats-wide dd span { margin-left: 8px; font-weight: 400; font-size: 12px; color: var(--ink-2); }
+
+.level { gap: 2px 10px; padding: 11px 12px; border-radius: 12px; background: var(--fill); }
+.reasons { padding-left: 16px; font-size: 13px; color: var(--ink-2); }
+.reasons li { margin-bottom: 3px; }
+
+.export-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.export-row button, .export-row .download-link { padding: 6px 11px; border-radius: 8px; font: 500 12px/1.2 var(--sans); }
+
+.area-list { border-top: 0; }
+.area-list li + li button { border-top: 1px solid var(--rule); }
+.area-list button { grid-template-columns: 20px 1fr auto; align-items: center; padding: 9px 8px 9px 4px; border-bottom: 0; border-radius: 8px; }
+.area-list button:hover { background: var(--fill); }
+.area-list .amount { font: 600 12.5px/1.3 var(--sans); }
+.area-list .amount .small { font: 400 11.5px/1.4 var(--sans); }
+.area-list .rank { display: block; font: 500 11.5px var(--sans); }
+
+/* --- the calendar: one row per year, one square per month --------------------- */
+
+.calendar { gap: 14px; padding: 18px 20px 14px; }
+.cal-head { flex: none; display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; }
+.cal-head h2 { font: 700 20px/1.2 var(--sans); letter-spacing: -0.01em; }
+.cal-head p { margin-top: 2px; font-size: 13px; line-height: 1.4; color: var(--ink-2); }
+.cal-how { max-width: 46ch; text-align: right; color: var(--ink-3) !important; }
+
+.cal-frame { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
+.cal-grid { display: grid; grid-template-columns: 44px repeat(12, minmax(0, 1fr)) 104px; gap: 3px; align-items: stretch; }
+.cal-months { flex: none; font: 500 11.5px/18px var(--sans); color: var(--ink-3); }
+.cal-months span { padding-left: 2px; }
+.cal-total-head { padding-left: 12px !important; white-space: nowrap; }
+.cal-rows { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 3px; overflow-y: auto; scrollbar-width: thin; }
+.cal-row-wrap { flex: 1 1 0; min-height: 14px; max-height: 30px; display: flex; flex-direction: column; }
+.cal-row-wrap:has(.cal-era) { flex-grow: 2.4; max-height: 60px; gap: 3px; }
+.cal-row { flex: 1 1 0; min-height: 0; }
+.cal-year { align-self: center; font: 400 11.5px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.cal-cell { display: block; min-width: 0; min-height: 0; padding: 0; border-radius: 4px; background: rgba(255, 255, 255, 0.055); transition: none; }
+button.cal-cell:hover, button.cal-cell.is-hover { box-shadow: 0 0 0 2px #fff; position: relative; z-index: 1; }
+.cal-cell.is-none { background: none; }
+.cal-cell.is-chosen { box-shadow: 0 0 0 2px var(--accent); }
+.cal-total { display: flex; align-items: center; gap: 8px; padding-left: 12px; }
+.cal-total i { display: block; flex: none; max-width: 52px; height: 6px; min-width: 1px; border-radius: 3px; background: rgba(255, 255, 255, 0.34); }
+.cal-total b { font: 400 11.5px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.cal-total i { width: 52px; }
+.cal-era { flex: 1 1 0; min-height: 0; display: flex; align-items: center; gap: 10px; margin: 0 104px 0 44px; font-size: 11.5px; line-height: 1; color: var(--warn); white-space: nowrap; overflow: hidden; }
+.cal-era::before, .cal-era::after { content: ''; flex: 1 1 0; border-top: 1px dashed color-mix(in srgb, var(--warn) 55%, transparent); }
+
+.cal-tip {
+  position: absolute;
+  z-index: 3;
+  width: 232px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 12px;
+  background: #1b1e21;
+  border: 1px solid var(--rule-2);
+  box-shadow: var(--shadow);
+  pointer-events: none;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+}
+.cal-tip strong { font: 600 14px/1.2 var(--sans); color: var(--ink); }
+.cal-tip dl { margin: 0; display: flex; flex-direction: column; gap: 3px; }
+.cal-tip dl div { display: flex; justify-content: space-between; gap: 12px; }
+.cal-tip dd { margin: 0; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.cal-tip-hint { font-size: 11.5px; color: var(--ink-3); }
+.cal-days { display: flex; align-items: flex-end; gap: 2px; height: 30px; }
+.cal-days i { flex: 1 1 0; border-radius: 1.5px; background: #f7a11b; }
+.cal-days i.is-zero { height: 2px; background: rgba(255, 255, 255, 0.16); }
+
+.cal-key { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding-top: 12px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--ink-2); }
+.cal-ramp { display: block; width: 150px; height: 10px; border-radius: 5px; }
+.cal-steps { display: flex; gap: 2px; }
+.cal-steps i { display: block; width: 20px; height: 10px; border-radius: 2px; }
+.cal-key-item { display: inline-flex; align-items: center; gap: 7px; margin-left: 14px; }
+.cal-key-item .cal-cell { width: 20px; height: 12px; }
+
+@media (max-width: 1280px) { .cal-how { display: none; } }
+@media (max-width: 880px) { .cal-grid { grid-template-columns: 38px repeat(12, minmax(0, 1fr)); } .cal-total, .cal-total-head { display: none; } .cal-era { margin-right: 0; } }

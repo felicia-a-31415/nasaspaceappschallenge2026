@@ -150,3 +150,99 @@ export function buildCalendar(
   }
   return { years, cells, frp, z, mean, sd, samples, viirs, maxCells, maxFrp, yearCells }
 }
+
+// --- the calendar as people read it: one square per month ---------------------------
+
+export interface MonthCell {
+  year: number
+  /** 1 to 12. */
+  month: number
+  /** False where the record holds no day of this month. */
+  exists: boolean
+  viirs: boolean
+  /** Sum of fire radiative power over the month, MW. */
+  frp: number
+  /** Active 0.1 degree cells, added up over the month's days. */
+  cellDays: number
+  /** Days with at least one detection. */
+  fireDays: number
+  /** The slot of the busiest day, or -1 when nothing burned. */
+  peakSlot: number
+  /** Mean cell-days of the same month in the same sensor's other years; null with too few. */
+  usual: number | null
+  z: number | null
+}
+
+export interface MonthGrid {
+  years: number[]
+  /** years x 12, row by row. */
+  cells: MonthCell[]
+  maxFrp: number
+  /** Days with fire in each year, for the margin. */
+  yearFireDays: number[]
+}
+
+const MIN_YEARS = 5
+
+export function monthSlots(month: number): [number, number] {
+  return [MONTH_STARTS[month - 1], month === 12 ? SLOTS : MONTH_STARTS[month]]
+}
+
+/** Roll the daily calendar up to months, each compared with the same month in other years. */
+export function monthGrid(calendar: Calendar): MonthGrid {
+  const { years } = calendar
+  const cells: MonthCell[] = []
+  for (let row = 0; row < years.length; row++) {
+    for (let month = 1; month <= 12; month++) {
+      const [a, b] = monthSlots(month)
+      const cell: MonthCell = {
+        year: years[row], month, exists: false, viirs: false, frp: 0, cellDays: 0, fireDays: 0, peakSlot: -1, usual: null, z: null,
+      }
+      let peak = 0
+      for (let slot = a; slot < b; slot++) {
+        const at = row * SLOTS + slot
+        const v = calendar.cells[at]
+        if (Number.isNaN(v)) continue
+        cell.exists = true
+        cell.viirs = calendar.viirs[at] === 1
+        cell.frp += calendar.frp[at]
+        cell.cellDays += v
+        if (v > 0) cell.fireDays++
+        if (v > peak) {
+          peak = v
+          cell.peakSlot = slot
+        }
+      }
+      cells.push(cell)
+    }
+  }
+
+  for (let month = 0; month < 12; month++) {
+    for (let row = 0; row < years.length; row++) {
+      const cell = cells[row * 12 + month]
+      if (!cell.exists) continue
+      let n = 0
+      let sum = 0
+      let squares = 0
+      for (let other = 0; other < years.length; other++) {
+        const c = cells[other * 12 + month]
+        if (other === row || !c.exists || c.viirs !== cell.viirs) continue
+        n++
+        sum += c.cellDays
+        squares += c.cellDays * c.cellDays
+      }
+      if (n < MIN_YEARS) continue
+      const mean = sum / n
+      const sd = Math.sqrt(Math.max(0, (squares - n * mean * mean) / (n - 1)))
+      cell.usual = mean
+      cell.z = (cell.cellDays - mean) / Math.max(sd, 1)
+    }
+  }
+
+  return {
+    years,
+    cells,
+    maxFrp: Math.max(0, ...cells.map((c) => c.frp)),
+    yearFireDays: years.map((_, row) => cells.slice(row * 12, row * 12 + 12).reduce((sum, c) => sum + c.fireDays, 0)),
+  }
+}
