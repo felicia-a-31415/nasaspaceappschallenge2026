@@ -769,10 +769,9 @@ button.link:hover:not(:disabled) { background: none; color: #a6d9ff; }
 .status-cell b { font-weight: 500; color: var(--ink-3); letter-spacing: 0.06em; }
 .status-cursor { min-width: 276px; color: var(--ink); }
 .status-cursor b:nth-of-type(2) { margin-left: 8px; }
-.status-scale i { display: block; height: 5px; border: 1px solid var(--ink-2); border-top: 0; }
 .status-credits { flex: 1 1 auto; min-width: 0; padding: 0 13px; overflow: hidden; text-overflow: ellipsis; text-align: right; color: var(--ink-3); }
 
-.td-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.td-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
 
 .play {
   flex: none;
@@ -789,12 +788,8 @@ button.link:hover:not(:disabled) { background: none; color: #a6d9ff; }
 }
 .play:hover:not(:disabled) { border-color: var(--accent); }
 
-.readout { flex: none; display: flex; flex-direction: column; gap: 4px; width: 232px; }
-.readout strong { font: 500 19px/1.1 var(--mono); letter-spacing: -0.03em; white-space: nowrap; text-transform: uppercase; }
-.readout span { font: 400 11px/1.2 var(--mono); color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.readout span b { font-weight: 500; color: var(--ink); }
-
 .export { position: relative; display: flex; align-items: center; gap: 8px; }
+.export-btn { height: 28px; padding: 0 12px; font-size: 12px; border-radius: 8px; }
 .warn-inline { color: var(--warn); }
 
 .popover {
@@ -819,15 +814,19 @@ button.link:hover:not(:disabled) { background: none; color: #a6d9ff; }
 .track {
   flex: 1 1 300px;
   min-width: 0;
-  padding: 8px 8px 0;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: 20px;
+  padding: 0 4px;
   cursor: pointer;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
-.track-plot { position: relative; height: 40px; border-bottom: 1px solid var(--ink-3); }
+.track-plot { grid-row: 1; grid-column: 2; position: relative; height: 28px; }
 
-.track-shape { position: absolute; left: 0; bottom: 0; width: 100%; height: 36px; }
+.track-shape { position: absolute; left: 0; bottom: 0; width: 100%; height: 28px; }
 .shape-older { fill: #4d5562; }
 .shape-newer { fill: #69727e; }
 /* Lit in the fire colours; the older camera stays the dimmer of the two. */
@@ -842,92 +841,82 @@ button.link:hover:not(:disabled) { background: none; color: #a6d9ff; }
   background: repeating-linear-gradient(135deg, var(--rule), var(--rule) 3px, transparent 3px, transparent 7px);
 }
 
-/* The chosen period: a wash over the shape and a heavy line along the baseline. */
-.track-band {
-  position: absolute;
-  top: 0;
-  bottom: -2px;
-  background: color-mix(in srgb, var(--accent) 9%, transparent);
-  border-bottom: 2px solid var(--accent);
-  pointer-events: none;
-}
-.track.is-playing .track-band {
-  background: color-mix(in srgb, var(--ink) 12%, transparent);
-  border-bottom-color: var(--ink);
-}
-
-/* February 2012: a dashed line, named in the row of years beneath it. */
+/* February 2012: a dashed line through the chart, named in the row of years. */
 .track-switch {
   position: absolute;
-  top: -4px;
-  bottom: -6px;
+  top: 0;
+  bottom: 0;
   width: 0;
   border-left: 1px dashed var(--warn);
   pointer-events: none;
 }
 
-.track-head { position: absolute; top: -4px; bottom: -6px; width: 2px; margin-left: -1px; background: var(--ink); pointer-events: none; }
+.track-head { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--ink); opacity: 0.6; pointer-events: none; }
 
-/* A handle is a small marker riding above the baseline, like the cursor on a slide
-   rule: a tab at the top, a hairline down to the ruler. */
+/* The slider sits under the chart: a thin line, the chosen period on it, two pills. */
+.track-rail { grid-row: 2; grid-column: 2; position: relative; height: 16px; margin-top: 4px; }
+.track-end { grid-row: 2; grid-column: 1; margin-top: 4px; font: 400 11px/1 var(--mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.track-end + .track-rail + .track-end { grid-column: 3; }
+.rail-line, .rail-band {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  border-radius: 1px;
+  pointer-events: none;
+}
+.rail-line { left: 0; right: 0; background: var(--rule-2); }
+.rail-band { height: 4px; margin-top: -2px; border-radius: 2px; background: var(--accent); }
+.track.is-playing .rail-band { background: var(--ink); }
+.rail-head {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--ink);
+  pointer-events: none;
+}
+
 .handle {
   position: absolute;
-  top: -10px;
-  bottom: -4px;
+  top: 50%;
   z-index: 1;
-  width: 20px;
+  width: 22px;
+  height: 12px;
   padding: 0;
-  transform: translateX(-50%);
-  background: none;
-  border: 0;
-  border-radius: 0;
+  transform: translate(-50%, -50%);
+  background: var(--ink) !important;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   outline: none;
   cursor: ew-resize;
+  transition: transform 0.1s var(--ease);
 }
-.handle:hover:not(:disabled) { background: none; }
-.handle::before {
-  content: '';
-  position: absolute;
-  top: 10px;
-  bottom: 2px;
-  left: 9.5px;
-  width: 1px;
-  background: var(--accent);
-}
-.handle::after {
-  content: '';
-  position: absolute;
-  left: 6px;
-  top: -1px;
-  width: 8px;
-  height: 13px;
-  border-radius: 2px;
-  background: var(--accent);
-  transition: transform 0.1s var(--ease), background 0.1s;
-  transform-origin: 50% 50%;
-}
-.handle:hover::after, .track.is-dragging .handle:focus::after { background: #fff; }
-.handle:focus-visible::after { background: #fff; transform: scale(1.3); }
+.track .handle:hover:not(:disabled), .track.is-dragging .handle:focus { border-color: var(--accent); transform: translate(-50%, -50%) scale(1.15); }
+.handle:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 45%, transparent); }
 
-.track-years { position: relative; height: 22px; margin-top: 1px; }
-.year { position: absolute; top: 0; display: flex; flex-direction: column; align-items: center; transform: translateX(-50%); }
-.year i { width: 1px; height: 4px; background: var(--ink-3); }
-.year.is-labelled i { height: 7px; }
-.year button {
-  margin-top: 1px;
-  padding: 0 3px;
-  border: 0;
-  font: 400 11px/14px var(--mono);
-  color: var(--ink-2);
+/* The month a pill sits on, shown while it is hovered, focused or dragged. */
+.handle-tip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #1b1e21;
+  font: 500 10.5px/1.3 var(--mono);
+  color: var(--ink);
   white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
 }
-.year button:hover:not(:disabled) { background: var(--bg-2); color: var(--ink); }
-.year.is-switch button { color: var(--warn); }
-.year.is-switch i { background: var(--warn); }
+.handle:hover .handle-tip, .handle:focus-visible .handle-tip, .track.is-dragging .handle:focus .handle-tip { opacity: 1; }
 
-.td-foot { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 24px; }
-.notice { display: flex; gap: 7px; font-size: 11.5px; line-height: 1.45; color: var(--warn); }
-.notice > span:first-child { font-size: 9px; line-height: 17px; }
+
 .credits { font: 400 10.5px/1.5 var(--mono); color: var(--ink-3); }
 
 /* --- loading and errors -------------------------------------------------- */
@@ -1158,10 +1147,9 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
   right: var(--gap);
   bottom: calc(var(--status-h) + var(--gap));
   border-radius: var(--r);
-  padding: 12px 16px 9px;
+  padding: 8px 14px;
 }
-.play { border-radius: 50%; background: var(--fill-2); }
-.readout strong { font: 600 18px/1.1 var(--sans); letter-spacing: -0.01em; text-transform: none; }
+.play { width: 30px; height: 30px; border-radius: 50%; background: var(--fill-2); font-size: 10px; }
 .shape-older { fill: rgba(255, 255, 255, 0.2); }
 .shape-newer { fill: rgba(255, 255, 255, 0.3); }
 .popover { background: #1b1e21; }
@@ -1181,7 +1169,6 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
 
 @media (max-width: 1280px) {
   :root { --card-w: 344px; --legend-w: 236px; }
-  .readout { width: 176px; }
   .track { flex-basis: 220px; }
   .sheet-foot { gap: 6px; padding-inline: 12px; }
   .sheet-foot button { padding-inline: 9px; }
@@ -1193,7 +1180,6 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
   .side { top: auto; right: var(--gap); width: auto; max-height: 46%; }
   .timedock { top: 58px; bottom: auto; }
   .track { order: 5; flex-basis: 100%; }
-  .readout { width: auto; margin-right: auto; }
   .legend, .status-credits, .app .maplibregl-ctrl-bottom-left, .calendar-meta { display: none; }
   .calendar { bottom: calc(46% + var(--gap)); }
 }
@@ -1295,6 +1281,14 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
 .legend-bar + .legend-bounds span:first-child { transform: none; }
 .legend-bar + .legend-bounds span:last-child { transform: translateX(-100%); }
 .legend-foot { font-size: 11px; color: var(--ink-3); }
+
+/* A continuous colour bar: framed gradient, tick marks hanging below, labels, caption. */
+.colourbar { display: flex; flex-direction: column; padding: 0 10px; }
+.colourbar-bar { height: 16px; border: 1px solid var(--ink-2); border-radius: 1px; }
+.colourbar-ticks { position: relative; height: 20px; font: 400 10.5px/1 var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-2); }
+.colourbar-ticks span { position: absolute; top: 0; padding-top: 8px; transform: translateX(-50%); white-space: nowrap; }
+.colourbar-ticks span::before { content: ''; position: absolute; top: 0; left: 50%; width: 1px; height: 5px; background: var(--ink-2); }
+.colourbar-caption { margin-top: 3px; text-align: center; font-size: 11px; color: var(--ink-2); }
 
 .sheet-foot { flex-wrap: nowrap; gap: 6px; }
 .sheet-foot button { padding-inline: 10px; }

@@ -139,7 +139,7 @@ export function SearchBox({ onFound }: SearchBoxProps) {
           aria-autocomplete="list"
           aria-activedescendant={showList ? `${listId}-${current}` : undefined}
           value={query}
-          placeholder="Place, or lat, lon"
+          placeholder="Search ITSS"
           autoComplete="off"
           spellCheck={false}
           onChange={(e) => { setQuery(e.target.value); setState('idle'); setActive(0); setOpen(true) }}
