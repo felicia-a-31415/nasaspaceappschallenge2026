@@ -519,3 +519,32 @@ a { color: var(--accent); }
 .weather-bar.is-missing { background: repeating-linear-gradient(45deg, #33333d, #33333d 2px, transparent 2px, transparent 4px); }
 .weather-top { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
 .weather p:last-child { margin: 8px 0 0; line-height: 1.4; }
+
+/* --- outlook ------------------------------------------------------------- */
+
+.outlook h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+
+.level {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border-left: 4px solid var(--ink-dim);
+  background: var(--raise);
+}
+.level-word { font-weight: 650; font-size: 15px; }
+.level-low { border-left-color: #6fb3ff; }
+.level-usual { border-left-color: #c9c4bb; }
+.level-high { border-left-color: #ff9d4d; }
+
+.reasons { margin: 0; padding-left: 18px; }
+.reasons li { margin-bottom: 5px; line-height: 1.4; }
+.outlook > p:last-child { margin: 6px 0 0; line-height: 1.4; }

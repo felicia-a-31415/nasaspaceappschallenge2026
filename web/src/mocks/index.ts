@@ -2,10 +2,10 @@
 // Shapes come from src/types.ts and must stay identical to the server's.
 
 import { cellCentre, cellIndex, distanceKm } from '../lib/geo'
-import { dayToDate, dayToMonth, formatMonth, monthEndDay, monthRange, monthStartDay, SWITCH_MONTH } from '../lib/days'
+import { dateToDay, dayToDate, dayToMonth, formatMonth, monthEndDay, monthRange, monthStartDay, SWITCH_MONTH } from '../lib/days'
 import type {
   AboutResponse, ActivityMonth, ActivityResponse, ActivitySummary, Coverage, HotspotArrays,
-  Selection, StatsResponse, StatsYear, TopAreasResponse, WeatherResponse,
+  OutlookResponse, Selection, StatsResponse, StatsYear, TopAreasResponse, WeatherResponse,
 } from '../types'
 import { mockHotspots } from './store'
 
@@ -17,6 +17,9 @@ const CURVES: Record<number, { a: number; b: number; sigma: number }> = {
 }
 
 const TERRA_ONLY_UNTIL = '2002-06'
+
+/** The server's own label for the outlook; the page shows it as the heading. */
+const OUTLOOK_LABEL = 'Outlook from past seasons and recent weather'
 
 /** Lift a count from the older camera to what the newer one would have seen. */
 function lift(modisCellDays: number, radiusKm: number): { activity: number; low: number; high: number } {
@@ -343,4 +346,100 @@ export async function weather(selection: Selection): Promise<WeatherResponse> {
     }
   }
   return { source: 'NASA POWER (sample data, not yet live)', days }
+}
+
+/**
+ * A stand-in outlook, worked out the same way the server does but from raw detections
+ * rather than burning squares: how the fortnight after the last day of data usually goes
+ * here, from the years the newer camera has seen. Recent weather is left out, exactly as
+ * the server does when NASA POWER cannot be reached.
+ */
+export async function outlook(selection: Selection): Promise<OutlookResponse> {
+  const h = await mockHotspots()
+  const coverage = coverageFor(h, selection)
+  const asOf = h.dataThrough
+  const window = {
+    from: dayToDate(h.epoch, dateToDay(h.epoch, asOf) + 1),
+    to: dayToDate(h.epoch, dateToDay(h.epoch, asOf) + 14),
+  }
+  const base: OutlookResponse = {
+    coverage, detail: null, label: OUTLOOK_LABEL, as_of: asOf, window,
+    level: null, reasons: [], history: null, recent: null, weather: null,
+  }
+  if (coverage === 'outside') {
+    return { ...base, detail: 'There is no fire history for this place yet.' }
+  }
+
+  const inside = insideCircle(h, selection)
+  const onDay = dateToDay(h.epoch, asOf)
+  const firstViirsDay = dateToDay(h.epoch, '2012-02-01')
+
+  // The same fortnight in each past year, and that year's whole total for comparison.
+  const years: { window: number; recent: number; yearTotal: number }[] = []
+  for (let back = 1; ; back++) {
+    const sameDay = onDay - Math.round(back * 365.25)
+    if (sameDay - 13 < firstViirsDay) break
+    let inWindow = 0
+    let inRecent = 0
+    let inYear = 0
+    for (const i of inside) {
+      if (h.sensor[i] !== 1) continue
+      const day = h.day[i]
+      if (day > sameDay && day <= sameDay + 14) inWindow++
+      if (day >= sameDay - 13 && day <= sameDay) inRecent++
+      if (day > sameDay && day <= sameDay + 365) inYear++
+    }
+    years.push({ window: inWindow, recent: inRecent, yearTotal: inYear })
+  }
+  if (years.length < 5) {
+    return { ...base, reasons: ['There are not enough past years of fire records here to give an outlook.'] }
+  }
+
+  const withFire = years.filter((y) => y.window > 0).length
+  const averageFortnight = (years.reduce((sum, y) => sum + y.yearTotal, 0) * 14) / 365
+  const factor = averageFortnight > 0
+    ? years.reduce((sum, y) => sum + y.window, 0) / averageFortnight
+    : null
+  let recentNow = 0
+  for (const i of inside) {
+    if (h.sensor[i] === 1 && h.day[i] >= onDay - 13 && h.day[i] <= onDay) recentNow++
+  }
+  const recentUsual = median(years.map((y) => y.recent))
+
+  const reasons: string[] = []
+  let level: number
+  if (withFire < years.length / 3) {
+    level = 0
+    reasons.push(`There was fire here in these two weeks in ${withFire
+      ? `${withFire} of the last ${years.length} years`
+      : `none of the last ${years.length} years`}.`)
+  } else if (factor !== null && factor >= 2) {
+    level = 2
+    reasons.push(`These two weeks are usually a busy time for fire here: about ${factor.toFixed(1)} times `
+      + `an average two weeks, with fire in ${withFire} of the last ${years.length} years.`)
+  } else {
+    level = 1
+    const amount = factor === null ? '' : `, about ${factor.toFixed(1)} times an average two weeks`
+    reasons.push(`There was fire here in these two weeks in ${withFire} of the last ${years.length} years${amount}.`)
+  }
+
+  if (recentNow >= Math.max(2 * recentUsual, 3)) {
+    level = Math.min(2, level + 1)
+    reasons.push(`The last two weeks had more fire than usual: ${recentNow} against a usual ${Math.round(recentUsual)}.`)
+  }
+  reasons.push('Recent weather was not available, so it is not counted.')
+
+  return {
+    ...base,
+    level: (['low', 'usual', 'high'] as const)[level],
+    reasons,
+    history: {
+      years: years.length,
+      years_with_fire: withFire,
+      median_activity: median(years.map((y) => y.window)),
+      season_factor: factor === null ? null : Number(factor.toFixed(2)),
+    },
+    recent: { activity: recentNow, usual: Math.round(recentUsual) },
+    weather: null,
+  }
 }

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 
-import { getAbout, getTopAreas, getWeather } from './api'
+import { getAbout, getOutlook, getTopAreas, getWeather } from './api'
 import { Legend } from './components/Legend'
 import { SearchBox } from './components/SearchBox'
 import { StatsPanel } from './components/StatsPanel'
 import { Downloads } from './components/Downloads'
+import { Outlook } from './components/Outlook'
 import { TopAreas } from './components/TopAreas'
 import { WeatherStrip } from './components/WeatherStrip'
 import { TimeBar } from './components/TimeBar'
@@ -62,6 +63,7 @@ export default function App() {
   )
   const topAreas = useSelectionQuery(range, (key, signal) => getTopAreas(key, signal))
   const weather = useSelectionQuery(selection, (sel, signal) => getWeather(sel, signal))
+  const outlook = useSelectionQuery(selection, (sel, signal) => getOutlook(sel, signal))
   const areas = topAreas.status === 'ready' ? topAreas.data.areas : EMPTY_AREAS
 
   /** Show the whole circle, whatever its size. */
@@ -118,6 +120,7 @@ export default function App() {
           ? (
             <>
               <StatsPanel selection={selection} placeName={point?.name ?? null} />
+              <Outlook state={outlook} />
               <WeatherStrip state={weather} />
               <Downloads selection={selection} />
               <TopAreas state={topAreas} onPick={choose} />

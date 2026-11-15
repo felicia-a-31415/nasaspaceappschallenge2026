@@ -4,7 +4,7 @@
 import { USE_MOCKS } from './env'
 import * as mock from './mocks'
 import type {
-  AboutResponse, ActivityResponse, HotspotsResponse, Selection, StatsResponse,
+  AboutResponse, ActivityResponse, HotspotsResponse, OutlookResponse, Selection, StatsResponse,
   TopAreasResponse, WeatherResponse,
 } from './types'
 
@@ -88,6 +88,12 @@ export function getTopAreas(
   if (range.from) q.set('from', range.from)
   if (range.to) q.set('to', range.to)
   return get(`/api/top-areas?${q}`, signal)
+}
+
+export function getOutlook(selection: Selection, signal?: AbortSignal): Promise<OutlookResponse> {
+  return USE_MOCKS
+    ? mock.outlook(selection)
+    : get(`/api/outlook?${selectionQuery(selection)}`, signal)
 }
 
 export function getWeather(selection: Selection, signal?: AbortSignal): Promise<WeatherResponse> {
