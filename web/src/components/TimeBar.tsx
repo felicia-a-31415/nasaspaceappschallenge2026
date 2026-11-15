@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { dayToMonth, formatMonth, SWITCH_MONTH } from '../lib/days'
 import type { Timeline } from '../hooks/useTimeline'
 
@@ -11,6 +12,20 @@ function switchPosition(months: string[]): number {
 
 export function TimeBar({ timeline, epoch }: { timeline: Timeline; epoch: string }) {
   const { months, playing, head, monthRange, speed } = timeline
+  const bar = useRef<HTMLDivElement>(null)
+
+  // The legend and the map's own controls sit directly above this bar, so its real
+  // height is published as a variable rather than guessed at.
+  useEffect(() => {
+    const element = bar.current
+    if (!element) return
+    const observer = new ResizeObserver(() => {
+      document.documentElement.style.setProperty('--timebar-h', `${element.offsetHeight}px`)
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [months.length])
+
   if (!months.length) return null
 
   const last = months.length - 1
@@ -18,11 +33,12 @@ export function TimeBar({ timeline, epoch }: { timeline: Timeline; epoch: string
   const headMonth = dayToMonth(epoch, head)
   const headAt = (Math.max(0, months.indexOf(headMonth)) / last) * 100
 
-  const setFrom = (value: number) => timeline.setMonthRange([Math.min(value, to), to])
-  const setTo = (value: number) => timeline.setMonthRange([from, Math.max(value, from)])
+  // Read the range as it is now: both handles can move in the same tick.
+  const setFrom = (value: number) => timeline.setMonthRange(([, end]) => [Math.min(value, end), end])
+  const setTo = (value: number) => timeline.setMonthRange(([start]) => [start, Math.max(value, start)])
 
   return (
-    <div className="timebar panel-surface">
+    <div className="timebar panel-surface" ref={bar}>
       <div className="timebar-head">
         <button
           type="button"

@@ -18,7 +18,7 @@ export interface Timeline {
   speed: number
   play: () => void
   pause: () => void
-  setMonthRange: (range: [number, number]) => void
+  setMonthRange: (update: (current: [number, number]) => [number, number]) => void
   setSpeed: (speed: number) => void
 }
 

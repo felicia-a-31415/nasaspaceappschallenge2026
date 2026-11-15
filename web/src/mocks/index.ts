@@ -160,9 +160,14 @@ function summarise(all: ActivityMonth[], months: ActivityMonth[]): ActivitySumma
   const rank = sorted.findIndex((w) => w.year === Number(months[0].month.slice(0, 4))) + 1
   const firstYear = Number(all[0].month.slice(0, 4))
 
+  const first = months[0].month
+  const lastMonth = months[span - 1].month
+  const sameYear = first.slice(0, 4) === lastMonth.slice(0, 4)
   const when = span === 1
-    ? formatMonth(months[0].month)
-    : `${formatMonth(months[0].month).split(' ')[0]} to ${formatMonth(months[span - 1].month)}`
+    ? formatMonth(first)
+    : sameYear
+      ? `${formatMonth(first).split(' ')[0]} to ${formatMonth(lastMonth)}`
+      : `${formatMonth(first)} to ${formatMonth(lastMonth)}`
   let sentence: string
   if (total === 0) {
     sentence = `${when} had no fire recorded here.`
@@ -235,15 +240,19 @@ export async function stats(selection: Selection): Promise<StatsResponse> {
     if (!peak || n > peak.detections) peak = { date: dayToDate(h.epoch, day), detections: n }
   }
 
-  const by_year: StatsYear[] = [...perYear.entries()]
-    .sort((a, b) => a[0] - b[0])
-    .map(([year, row]) => ({
+  const firstYear = Number(dayToDate(h.epoch, Math.max(fromDay, h.minDay)).slice(0, 4))
+  const lastYear = Number(dayToDate(h.epoch, Math.min(toDay, h.maxDay)).slice(0, 4))
+  const by_year: StatsYear[] = []
+  for (let year = firstYear; year <= lastYear; year++) {
+    const row = perYear.get(year) ?? { detections: 0, sum: 0 }
+    by_year.push({
       year,
       detections: row.detections,
       mean_frp: row.detections ? Number((row.sum / row.detections).toFixed(1)) : null,
       sum_frp: Number(row.sum.toFixed(1)),
       sensor: year < 2012 ? 'MODIS' : 'VIIRS',
-    }))
+    })
+  }
 
   // The typical year is measured by the same camera as this year.
   const viirsYears = [...perYearAll.entries()].filter(([y]) => y >= 2012 && y < thisYear)

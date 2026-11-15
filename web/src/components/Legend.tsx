@@ -1,4 +1,5 @@
 import { formatDate } from '../lib/days'
+import { PLACE_SEARCH_CREDIT } from '../places'
 import { cssColour, intensityFraction, LEGEND_TICKS, rampColour, TOP_INTENSITY_MW } from '../map/colourRamp'
 
 const GRADIENT = Array.from({ length: 11 }, (_, i) => {
@@ -31,6 +32,7 @@ export function Legend({ dataThrough }: { dataThrough?: string }) {
         {dataThrough ? `Data up to ${formatDate(dataThrough)}. ` : ''}
         Fire data: NASA FIRMS (MODIS, VIIRS).
         <br />Base map © OpenStreetMap contributors, © CARTO.
+        <br />{PLACE_SEARCH_CREDIT}.
       </p>
     </div>
   )
