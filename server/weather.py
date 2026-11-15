@@ -4,7 +4,8 @@ from datetime import date
 import httpx
 
 URL = "https://power.larc.nasa.gov/api/temporal/daily/point"
-FIELDS = {"PRECTOTCORR": "precip_mm", "T2M_MAX": "temp_max_c", "WS10M": "wind_ms", "RH2M": "humidity_pct"}
+FIELDS = {"PRECTOTCORR": "precip_mm", "T2M_MAX": "temp_max_c", "WS10M": "wind_ms", "WD10M": "wind_from_deg",
+          "RH2M": "humidity_pct"}
 MISSING = -900          # POWER marks missing readings with -999
 
 
@@ -13,7 +14,7 @@ class WeatherError(Exception):
 
 
 def daily(lat, lon, start: date, end: date, client=None):
-    """[{date, precip_mm, temp_max_c, wind_ms, humidity_pct}] for each day; a value is None when NASA has none."""
+    """[{date, precip_mm, temp_max_c, wind_ms, wind_from_deg, humidity_pct}] for each day; a value is None when NASA has none."""
     client = client or httpx
     params = {"parameters": ",".join(FIELDS), "community": "AG", "latitude": f"{lat:.4f}", "longitude": f"{lon:.4f}",
               "start": start.strftime("%Y%m%d"), "end": end.strftime("%Y%m%d"), "format": "JSON"}

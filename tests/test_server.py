@@ -306,3 +306,66 @@ def test_outlook_survives_missing_weather(tmp_path, places):
     c = TestClient(create_app(make_region(tmp_path / "quebec"), tmp_path / "cache", places=places, weather_daily=broken))
     r = c.get("/api/outlook", params=HERE)
     assert r.status_code == 200 and r.json()["weather"] is None
+
+
+def spread_client(tmp_path, places):
+    from tests.test_spread import ByDistance
+    fake_weather.calls = []
+    return TestClient(create_app(make_region(tmp_path / "quebec"), tmp_path / "cache", places=places,
+                                 weather_daily=fake_weather, spread_model={"model": ByDistance(), "tested": None}))
+
+
+def test_spread_forecast_in_quebec(tmp_path, places):
+    c = spread_client(tmp_path, places)
+    body = c.get("/api/spread", params=HERE | {"radius_km": 50, "on": "2015-12-10", "days": 2}).json()
+    assert body["coverage"] == "preloaded" and body["label"] == "Experimental spread forecast"
+    assert body["as_of"] == "2015-12-10" and len(body["burning"]) == 1
+    assert body["cells"] and all(len(cell["p"]) == 2 for cell in body["cells"])
+    assert body["place"]["nearest_fire_km"] < 10
+    assert fake_weather.calls and fake_weather.calls[-1][3] == pd.Timestamp("2015-12-10").date()
+
+
+def test_spread_with_no_fire_that_day(tmp_path, places):
+    body = spread_client(tmp_path, places).get("/api/spread", params=HERE | {"on": "2015-12-09"}).json()
+    assert body["cells"] == [] and body["reasons"]
+
+
+@pytest.mark.parametrize("params", [{"days": 0}, {"days": 8}, {"on": "soon"}, {"on": "2016-01-01"}, {"on": "2010-06-01"}])
+def test_spread_rejects_bad_values(tmp_path, places, params):
+    r = spread_client(tmp_path, places).get("/api/spread", params=HERE | params)
+    assert r.status_code == 422 and isinstance(r.json()["detail"], str)
+
+
+def test_spread_without_a_model_says_how_to_make_one(client):
+    r = client.get("/api/spread", params=HERE)
+    assert r.status_code == 404 and "spread_train" in r.json()["detail"]
+
+
+def test_spread_uses_the_forecast_when_the_model_has_one(tmp_path, places):
+    from tests.test_spread import ByDistance, WindAware
+    asked = []
+    def fake_forecast(lat, lon, issue, days):
+        asked.append((lat, lon, issue, days))
+        return {k: [{"date": (pd.Timestamp(issue) + pd.Timedelta(days=k)).strftime("%Y-%m-%d"), "precip_mm": 0.0,
+                     "temp_max_c": 25.0, "wind_ms": 6.0, "wind_from_deg": 90.0, "humidity_pct": 30.0}]
+                for k in range(1, days + 1)}
+    fake_weather.calls = []
+    c = TestClient(create_app(make_region(tmp_path / "quebec"), tmp_path / "cache", places=places,
+                              weather_daily=fake_weather, forecast_daily=fake_forecast,
+                              spread_model={"model": ByDistance(), "forecast_model": WindAware(),
+                                            "forecast_source": "fake", "tested": None}))
+    body = c.get("/api/spread", params=HERE | {"radius_km": 50, "on": "2015-12-10", "days": 2}).json()
+    assert body["weather_used"] == ["forecast", "forecast"] and asked[0][2:] == (pd.Timestamp("2015-12-10").date(), 2)
+    assert any(r.startswith("Forecast wind at the fire (fake)") for r in body["reasons"])
+
+
+def test_spread_survives_a_broken_forecast(tmp_path, places):
+    from server.forecast import ForecastError
+    from tests.test_spread import ByDistance, WindAware
+    def broken(*args):
+        raise ForecastError("x")
+    c = TestClient(create_app(make_region(tmp_path / "quebec"), tmp_path / "cache", places=places,
+                              weather_daily=fake_weather, forecast_daily=broken,
+                              spread_model={"model": ByDistance(), "forecast_model": WindAware(), "tested": None}))
+    body = c.get("/api/spread", params=HERE | {"radius_km": 50, "on": "2015-12-10", "days": 2}).json()
+    assert body["weather_used"] == ["today", "today"]
