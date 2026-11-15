@@ -1,22 +1,39 @@
 """Web server: answers "what burned within this circle between these months?"
 
+Circles in Quebec are answered at once from the preloaded tables. Anywhere
+else is fetched from NASA FIRMS on demand (see server/ondemand.py).
+
 Run with:  uvicorn server.app:app --port 8000
 """
+import calendar
 import os
 import re
+from contextlib import asynccontextmanager
+from datetime import date
+from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
-from harmonize.borders import coverage
+from harmonize.borders import BOX, coverage
 from harmonize.query import RADII_KM, circle_monthly, monthly_csv, summarize
-from server.store import load_region
+from server.ondemand import Places, box_for
+from server import stats, weather
+from server.store import hotspots_in_circle, load_region
 
 MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 CHARTS = ("before", "after", "validation")
+MAX_HOTSPOT_ROWS = 500_000
+CSV_CHUNK = 50_000
+TOO_FAR = "Fire history is not available this far north or south."
+NOTHING_YET = "There is no fire history for this place yet."
+NO_WEATHER = "NASA's weather service did not answer. Try again in a moment."
+WEATHER_DEFAULT_MONTHS = 12
 
 
 class Selection:
@@ -34,11 +51,13 @@ class Selection:
             raise HTTPException(422, "The 'from' month is after the 'to' month.")
         self.lat, self.lon, self.radius_km, self.start, self.end = lat, lon, radius_km, start, end
 
+    def file_name(self, what):
+        return f"{what}-{self.lat:.2f}_{self.lon:.2f}_{self.radius_km}km.csv"
 
-def selection(lat: float, lon: float, radius_km: int = 100,
-              start: str | None = Query(None, alias="from"),
-              end: str | None = Query(None, alias="to")) -> Selection:
-    return Selection(lat, lon, radius_km, start, end)
+
+def month_range(table, sel):
+    """The asked-for months, defaulting to everything the table has."""
+    return pd.Period(sel.start or table.data_start, "M"), pd.Period(sel.end or table.data_end, "M")
 
 
 def monthly_for(table, sel):
@@ -48,8 +67,7 @@ def monthly_for(table, sel):
     """
     full = circle_monthly(table.cd, table.curve(sel.radius_km), sel.lat, sel.lon, sel.radius_km,
                           table.data_start, table.data_end, table.data_start, table.data_end)
-    start = pd.Period(sel.start or table.data_start, "M")
-    end = pd.Period(sel.end or table.data_end, "M")
+    start, end = month_range(table, sel)
     return full.loc[start:end], full, start, end
 
 
@@ -61,20 +79,55 @@ def answer(table, sel, coverage_label, progress=None):
             for month, r in zip(months.index, months.itertuples())]
     return {"coverage": coverage_label, "progress": progress, "curve_source": table.curve_source,
             "data_through": table.data_through, "months": rows,
-            "summary": summarize(full, start, end) if len(months) else None}
+            "summary": summarize(full, start, end) if len(months) else None, "detail": None}
 
 
-def empty_answer(coverage_label, detail=None):
-    return {"coverage": coverage_label, "progress": None, "curve_source": None, "data_through": None,
+def empty_answer(coverage_label, detail=None, progress=None):
+    return {"coverage": coverage_label, "progress": progress, "curve_source": None, "data_through": None,
             "months": [], "summary": None, "detail": detail}
 
 
-def create_app(data_dir, cache_dir):
+def check_months(start, end):
+    for label, value in (("from", start), ("to", end)):
+        if value is not None and not MONTH.match(value):
+            raise HTTPException(422, f"The '{label}' month must look like 2023-06.")
+    if start and end and start > end:
+        raise HTTPException(422, "The 'from' month is after the 'to' month.")
+
+
+def create_app(data_dir, cache_dir, places=None, weather_daily=weather.daily, web_dir="web/dist"):
+    """`places` and `weather_daily` are injected by tests; left out, the app builds its own
+    places and runs its fetch worker."""
     data_dir = Path(data_dir)
-    canada = load_region(data_dir)
-    app = FastAPI(title="Fire calendar")
-    app.state.canada = canada
-    app.state.cache_dir = Path(cache_dir)
+    region = load_region(data_dir)
+    own_worker = places is None
+    if places is None:
+        places = Places(cache_dir, region.model, curve_source=region.curve_source)
+
+    @asynccontextmanager
+    async def lifespan(app):
+        if own_worker:
+            places.start()
+        yield
+        places.stop()
+
+    app = FastAPI(title="Fire calendar", lifespan=lifespan)
+    app.add_middleware(GZipMiddleware, minimum_size=10_000)
+    app.state.region = region
+    app.state.places = places
+
+    @lru_cache(maxsize=1)
+    def region_hotspots():
+        """Quebec's fire hotspots from the camera in use at the time, loaded on first use."""
+        if region.hotspots_path is None:
+            raise HTTPException(404, "The hotspot table is missing. Run: python -m harmonize.run")
+        return stats.in_use(pd.read_parquet(region.hotspots_path))
+
+    @lru_cache(maxsize=1)
+    def region_dots():
+        return stats.dots_json(region_hotspots(), region.curve_source, region.data_through, BOX)
+
+    cached_weather = lru_cache(maxsize=256)(weather_daily)
 
     @app.exception_handler(RequestValidationError)
     async def plain_validation_error(request: Request, exc: RequestValidationError):
@@ -82,41 +135,123 @@ def create_app(data_dir, cache_dir):
         return JSONResponse({"detail": f"These values are missing or not understood: {fields}."}, status_code=422)
 
     def table_for(sel):
-        """(table, coverage label, progress) for a selection; table is None when there is nothing to answer from."""
+        """(table, coverage, progress, detail). `table` is None when there is nothing to answer from yet.
+
+        coverage: 'preloaded' or 'partial' in the preloaded region; elsewhere the
+        place's fetch status ('queued', 'fetching', 'fetched'), or 'outside' when
+        no answer is possible (too far north or south, or the fetch failed).
+        """
         where = coverage(sel.lat, sel.lon, sel.radius_km)
-        if where == "outside":
-            return None, "outside", None
-        return canada, where, None
+        if where != "outside":
+            return region, "preloaded" if where == "inside" else "partial", None, None
+        if box_for(sel.lat, sel.lon) is None:
+            return None, "outside", None, TOO_FAR
+        state = places.request(sel.lat, sel.lon, sel.radius_km)
+        if state.status == "failed":
+            return None, "outside", None, state.error
+        return places.table(state), state.status, state.progress(), None
 
     @app.get("/api/activity")
     def activity(lat: float, lon: float, radius_km: int = 100,
                  start: str | None = Query(None, alias="from"), end: str | None = Query(None, alias="to")):
         sel = Selection(lat, lon, radius_km, start, end)
-        table, where, progress = table_for(sel)
+        table, where, progress, detail = table_for(sel)
         if table is None:
-            return empty_answer(where)
+            return empty_answer(where, detail, progress)
         return answer(table, sel, where, progress)
 
     @app.get("/api/download/monthly.csv")
     def download_monthly(lat: float, lon: float, radius_km: int = 100,
                          start: str | None = Query(None, alias="from"), end: str | None = Query(None, alias="to")):
         sel = Selection(lat, lon, radius_km, start, end)
-        table, where, _ = table_for(sel)
+        table, _, _, detail = table_for(sel)
         if table is None:
-            raise HTTPException(404, "There is no fire history for this place yet.")
+            raise HTTPException(404, detail or NOTHING_YET)
         months = monthly_for(table, sel)[0]
-        name = f"fire-{sel.lat:.2f}_{sel.lon:.2f}_{sel.radius_km}km.csv"
         return Response(monthly_csv(months), media_type="text/csv",
-                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+                        headers={"Content-Disposition": f'attachment; filename="{sel.file_name("fire")}"'})
+
+    @app.get("/api/download/hotspots.csv")
+    def download_hotspots(lat: float, lon: float, radius_km: int = 100,
+                          start: str | None = Query(None, alias="from"), end: str | None = Query(None, alias="to")):
+        sel = Selection(lat, lon, radius_km, start, end)
+        table, _, _, detail = table_for(sel)
+        rows = None if table is None else hotspots_in_circle(table, sel.lat, sel.lon, sel.radius_km,
+                                                             *month_range(table, sel))
+        if rows is None:
+            raise HTTPException(404, detail or NOTHING_YET)
+        if len(rows) > MAX_HOTSPOT_ROWS:
+            raise HTTPException(422, "That is too many hotspots to download at once. Choose a smaller radius or a shorter period.")
+
+        def chunks():
+            yield ",".join(rows.columns) + "\n"
+            for at in range(0, len(rows), CSV_CHUNK):
+                yield rows.iloc[at:at + CSV_CHUNK].to_csv(index=False, header=False, date_format="%Y-%m-%d")
+
+        return StreamingResponse(chunks(), media_type="text/csv",
+                                 headers={"Content-Disposition": f'attachment; filename="{sel.file_name("hotspots")}"'})
+
+    @app.get("/api/hotspots")
+    def hotspots(region_name: str = Query("quebec", alias="region")):
+        if region_name != region.curve_source:
+            raise HTTPException(404, f"Only '{region.curve_source}' is available.")
+        return Response(region_dots(), media_type="application/json")
+
+    @app.get("/api/stats")
+    def circle_stats(lat: float, lon: float, radius_km: int = 100,
+                     start: str | None = Query(None, alias="from"), end: str | None = Query(None, alias="to")):
+        sel = Selection(lat, lon, radius_km, start, end)
+        table, where, _, detail = table_for(sel)
+        if table is None:
+            return {"coverage": where, "detail": detail, "detections": 0, "mean_frp": None, "sum_frp": 0.0,
+                    "peak_day": None, "by_year": [], "typical_year": None, "this_year": None}
+        if table is region:
+            rows = stats.in_circle(region_hotspots(), sel.lat, sel.lon, sel.radius_km)
+        else:
+            rows = stats.in_use(hotspots_in_circle(table, sel.lat, sel.lon, sel.radius_km,
+                                                   table.data_start, table.data_end))
+        first, last = month_range(table, sel)
+        first, last = max(first, table.data_start), min(last, table.data_end)
+        return {"coverage": where, "detail": None, **stats.circle_stats(rows, first, last, table.data_through, table.data_start)}
+
+    @app.get("/api/top-areas")
+    def top_areas(start: str | None = Query(None, alias="from"), end: str | None = Query(None, alias="to"),
+                  limit: int = 10):
+        check_months(start, end)
+        if not 1 <= limit <= 100:
+            raise HTTPException(422, "The limit must be between 1 and 100.")
+        first = pd.Period(start or region.data_start, "M")
+        last = pd.Period(end or region.data_end, "M")
+        return {"areas": stats.top_areas(region_hotspots(), first, last, limit)}
+
+    @app.get("/api/weather")
+    def weather_at(lat: float, lon: float,
+                   start: str | None = Query(None, alias="from"), end: str | None = Query(None, alias="to")):
+        Selection(lat, lon, RADII_KM[0], start, end)
+        last = pd.Period(end or region.data_end, "M")
+        first = pd.Period(start, "M") if start else last - (WEATHER_DEFAULT_MONTHS - 1)
+        if first > last:
+            raise HTTPException(422, "The 'from' month is after the 'to' month.")
+        if first.year < 1981:
+            raise HTTPException(422, "Weather records start in 1981.")
+        first_day = date(first.year, first.month, 1)
+        last_day = min(date(last.year, last.month, calendar.monthrange(last.year, last.month)[1]), date.today())
+        if first_day > last_day:
+            return {"source": "NASA POWER", "days": []}
+        try:
+            days = cached_weather(round(lat, 2), round(lon, 2), first_day, last_day)
+        except weather.WeatherError:
+            raise HTTPException(502, NO_WEATHER) from None
+        return {"source": "NASA POWER", "days": days}
 
     @app.get("/api/about")
     def about():
         def rows(name):
             path = data_dir / name
             return pd.read_csv(path).to_dict("records") if path.exists() else []
-        return {"model": canada.model, "validation": rows("validation.csv"),
+        return {"region": region.curve_source, "model": region.model, "validation": rows("validation.csv"),
                 "circle_validation": rows("circle_validation.csv"),
-                "data_through": canada.data_through, "radii_km": list(RADII_KM)}
+                "data_through": region.data_through, "radii_km": list(RADII_KM)}
 
     @app.get("/api/charts/{name}.png")
     def chart(name: str):
@@ -125,11 +260,14 @@ def create_app(data_dir, cache_dir):
             raise HTTPException(404, "No such chart.")
         return FileResponse(path, media_type="image/png")
 
+    if web_dir and Path(web_dir).is_dir():          # the built page, when there is one; after the /api routes
+        app.mount("/", StaticFiles(directory=web_dir, html=True), name="web")
+
     return app
 
 
 def _default_app():
-    return create_app(os.environ.get("FIRE_DATA_DIR", "outputs/canada"), os.environ.get("FIRE_CACHE_DIR", "cache"))
+    return create_app(os.environ.get("FIRE_DATA_DIR", "outputs/quebec"), os.environ.get("FIRE_CACHE_DIR", "cache"))
 
 
 def __getattr__(name):          # build the real app only when uvicorn asks for it, not on import in tests

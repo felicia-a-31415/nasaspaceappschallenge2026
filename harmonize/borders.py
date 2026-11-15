@@ -1,8 +1,12 @@
-"""Is a point, or a circle around it, inside Canada?
+"""Is a point, or a circle around it, inside Quebec?
 
-Outlines: Natural Earth 1:50m admin-0 countries (public domain), Canada and
-the United States only. The Canada hotspot files are a country download, so
-the bounding box alone would wrongly claim Alaska and the northern US.
+The Quebec hotspot files hold hotspots inside the province's outline only, so
+the bounding box alone would wrongly claim parts of Ontario, Labrador, New
+Brunswick and Maine.
+
+Outlines (Natural Earth, public domain): Quebec from the 1:10m provinces
+layer, simplified; Canada and the United States from the 1:50m countries
+layer, used only to tell neighbouring land from sea.
 """
 import json
 from pathlib import Path
@@ -13,21 +17,25 @@ from shapely.geometry import shape
 
 _features = json.loads((Path(__file__).parent / "borders.geojson").read_text())["features"]
 _shapes = {f["properties"]["name"]: shape(f["geometry"]) for f in _features}
-CANADA, USA = _shapes["Canada"], _shapes["United States"]
-shapely.prepare(CANADA)
-shapely.prepare(USA)
+QUEBEC = _shapes["Quebec"]
+LAND = (_shapes["Canada"], _shapes["United States"])
+for _shape in (QUEBEC, *LAND):
+    shapely.prepare(_shape)
 
+_w, _s, _e, _n = QUEBEC.bounds
+BOX = (np.floor(_w * 10) / 10, np.floor(_s * 10) / 10, np.ceil(_e * 10) / 10, np.ceil(_n * 10) / 10)
+BOX = tuple(float(v) for v in BOX)   # west, south, east, north, widened to tenths of a degree
 EARTH_KM = 6371.0
 EDGE_POINTS = 16
 
 
-def in_canada_mask(lats, lons):
-    """True for each point inside Canada's outline."""
-    return shapely.contains_xy(CANADA, np.asarray(lons, dtype=float), np.asarray(lats, dtype=float))
+def in_quebec_mask(lats, lons):
+    """True for each point inside Quebec's outline."""
+    return shapely.contains_xy(QUEBEC, np.asarray(lons, dtype=float), np.asarray(lats, dtype=float))
 
 
-def in_canada(lat, lon):
-    return bool(in_canada_mask([lat], [lon])[0])
+def in_quebec(lat, lon):
+    return bool(in_quebec_mask([lat], [lon])[0])
 
 
 def _circle_edge(lat, lon, radius_km):
@@ -41,8 +49,18 @@ def _circle_edge(lat, lon, radius_km):
 
 
 def coverage(lat, lon, radius_km):
-    """'canada', 'partial' (the circle reaches into the United States) or 'outside'."""
-    if not in_canada(lat, lon):
+    """Where a circle sits relative to Quebec.
+
+    'outside': the centre is not in Quebec.
+    'partial': the centre is in Quebec and the circle reaches land in another
+               province or in the United States.
+    'inside':  otherwise (a circle reaching over the sea is still 'inside').
+    """
+    if not in_quebec(lat, lon):
         return "outside"
     lats, lons = _circle_edge(lat, lon, radius_km)
-    return "partial" if shapely.contains_xy(USA, lons, lats).any() else "canada"
+    beyond = ~in_quebec_mask(lats, lons)
+    on_land = np.zeros(len(lats), dtype=bool)
+    for country in LAND:
+        on_land |= shapely.contains_xy(country, lons, lats)
+    return "partial" if (beyond & on_land).any() else "inside"

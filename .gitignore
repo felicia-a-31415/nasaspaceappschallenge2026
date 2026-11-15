@@ -6,7 +6,9 @@ __pycache__/
 .superpowers/
 .env
 data/canada/
-outputs/canada/hotspots.parquet
+outputs/canada/
 cache/
 web/node_modules/
 web/dist/
+web/public/mock/
+frontend-handoff.md

@@ -23,8 +23,7 @@ COLUMNS = [
 
 VIIRS_LEVELS = {"l": "low", "n": "nominal", "h": "high"}
 
-# Text columns with few distinct values. Stored as categories so that the
-# 14 million Canada rows fit in memory.
+# Text columns with few distinct values. Stored as categories to save memory.
 CATEGORICAL = ["sensor", "satellite", "dataset", "source_file", "confidence_level", "daynight", "version"]
 
 

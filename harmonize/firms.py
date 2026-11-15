@@ -46,6 +46,10 @@ class FirmsError(Exception):
     """The FIRMS service could not be used. The message never contains the key."""
 
 
+class MissingKey(FirmsError):
+    """No FIRMS key is configured."""
+
+
 def load_key(env_path=".env"):
     """The key from the environment, else from a .env file."""
     key = os.environ.get("FIRMS_MAP_KEY")
@@ -55,7 +59,7 @@ def load_key(env_path=".env"):
             if line.strip().startswith("FIRMS_MAP_KEY"):
                 key = line.split("=", 1)[1].strip().strip("\"'")
     if not key:
-        raise FirmsError("No FIRMS key found. Put FIRMS_MAP_KEY=... in the .env file.")
+        raise MissingKey("No FIRMS key found. Put FIRMS_MAP_KEY=... in the .env file.")
     return key
 
 
@@ -83,11 +87,11 @@ def _own_client(client):
 def budget_used(key, client=None):
     """Units spent in the current 10-minute window."""
     client = _own_client(client)
-    reply = client.get(f"{BASE}/mapserver/mapkey_status/", params={"MAP_KEY": key}, timeout=60)
     try:
+        reply = client.get(f"{BASE}/mapserver/mapkey_status/", params={"MAP_KEY": key}, timeout=60)
         return int(reply.json()["current_transactions"])
-    except (ValueError, KeyError) as error:
-        raise FirmsError("FIRMS did not report the key's status.") from error
+    except (httpx.HTTPError, ValueError, KeyError) as error:
+        raise FirmsError("FIRMS did not report the key's status.") from None
 
 
 def wait_for_budget(key, needed, limit=BUDGET_LIMIT, sleep=time.sleep, client=None):

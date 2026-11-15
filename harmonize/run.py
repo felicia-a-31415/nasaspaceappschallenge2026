@@ -90,6 +90,19 @@ def _plot_validation(validation, path):
     plt.close(fig)
 
 
+def data_through(root, region, last_hotspot):
+    """The day the data is complete through: the last hotspot, or the last refresh if later.
+
+    `harmonize.refresh` records the day it checked in data/<region>/checked_through.txt,
+    so a quiet week still counts as up to date.
+    """
+    through = pd.Timestamp(last_hotspot).strftime("%Y-%m-%d")
+    note = Path(root) / "data" / region / "checked_through.txt"
+    if note.exists():
+        through = max(through, note.read_text().strip())
+    return through
+
+
 def main(region="quebec", root="."):
     out_dir = Path(root) / "outputs" / region
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -108,8 +121,9 @@ def main(region="quebec", root="."):
     # both sensors over the whole period: the web server re-does the correction per circle
     cd = cell_days(viirs_reference(clean(hotspots)))
     cd.to_parquet(out_dir / "cell_days.parquet", index=False)
+    through = data_through(root, region, hotspots["acq_date"].max())
     start = hotspots["acq_date"].min().to_period("M")
-    end = hotspots["acq_date"].max().to_period("M")
+    end = pd.Period(through, "M")
     monthly = monthly_counts(cd, start, end)
 
     overlap = monthly.loc[OVERLAP[0]:OVERLAP[1]]
@@ -127,7 +141,7 @@ def main(region="quebec", root="."):
     by_radius = {str(radius): m for radius, m in circle_models(samples, fallback=model).items()}
     (out_dir / "model.json").write_text(json.dumps(
         {**model, "cell_deg": 0.1, "fit_months": list(OVERLAP), "switch_month": str(SWITCH),
-         "by_radius": by_radius}, indent=2))
+         "by_radius": by_radius, "data_through": through}, indent=2))
 
     _plot_before(hotspots, out_dir / "before.png")
     _plot_after(monthly, harmonized, out_dir / "after.png")

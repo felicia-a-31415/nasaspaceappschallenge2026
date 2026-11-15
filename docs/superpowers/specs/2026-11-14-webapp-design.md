@@ -2,6 +2,8 @@
 
 14 November 2026, 4:30 PM. Step two of the project. It reads what the harmonization step (`harmonize/`) produces.
 
+> **Changed on 14 November, 9 PM.** No Canada data is used. Wherever this document says Canada, read Quebec: the preloaded region is Quebec (`data/quebec`, `outputs/quebec`), "in the region" is decided with Quebec's outline, the curves are fitted on Quebec, and everywhere else is fetched on demand. The server reports `coverage` as `preloaded`, `partial`, `queued`, `fetching`, `fetched` or `outside`. The page's direction also changed; see `docs/frontend-handoff.md`, which wins where the two disagree.
+
 ## Why
 
 The challenge asks for a web app where someone selects a region and a date range, sees a calendar of fire activity, compares it with the historical median, and downloads the result. Our audience is local residents first, who want one plain sentence ("is this normal?"), with a detailed view for people who want the calendar and the numbers.
