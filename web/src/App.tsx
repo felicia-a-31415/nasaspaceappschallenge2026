@@ -339,7 +339,7 @@ export default function App() {
 
       {data && <TimeBar timeline={timeline} hotspots={data} dataThrough={dataThrough} getCanvas={getCanvas} />}
 
-      <StatusBar map={map} dataThrough={dataThrough} />
+      <StatusBar map={map} />
 
       {method && <Method about={about} onClose={closeMethod} />}
 
