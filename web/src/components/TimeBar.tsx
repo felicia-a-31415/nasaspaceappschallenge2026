@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { dayToMonth, formatMonth, formatMonthShort, monthStartDay, SWITCH_MONTH } from '../lib/days'
-import { count } from '../lib/format'
+import { formatMonth, monthStartDay, SWITCH_MONTH } from '../lib/days'
 import { monthlyIntensity, profileHeights } from '../lib/profile'
 import { anchorFor, monthAt, nudge, spanFrom } from '../lib/rangeDrag'
 import type { MonthSpan } from '../lib/rangeDrag'
 import { dayShare } from '../hooks/useTimeline'
 import type { Timeline } from '../hooks/useTimeline'
-import { sliceByDay } from '../map/field'
 import type { HotspotArrays } from '../types'
 import { ExportVideo } from './ExportVideo'
 
-const SPEEDS = [0.5, 1, 2]
 const SWITCH_YEAR = Number(SWITCH_MONTH.slice(0, 4))
 
 export interface TimeBarProps {
@@ -23,8 +20,7 @@ export interface TimeBarProps {
 }
 
 export function TimeBar({ timeline, hotspots, getCanvas }: TimeBarProps) {
-  const { months, playing, head, monthRange, speed, run } = timeline
-  const { epoch } = hotspots
+  const { months, playing } = timeline
   const bar = useRef<HTMLDivElement>(null)
 
   // The legend and the map's own controls sit directly above this bar, so its real
@@ -41,13 +37,6 @@ export function TimeBar({ timeline, hotspots, getCanvas }: TimeBarProps) {
 
   if (!months.length) return null
 
-  const [from, to] = monthRange
-  const chosen = to - from + 1
-  // How many detections the map is showing right now. They arrive in day order, so this
-  // is two look-ups, cheap enough to keep up with the playhead.
-  const slice = sliceByDay(hotspots.day, timeline.dayRange[0], timeline.dayRange[1])
-  const shown = slice ? slice[1] - slice[0] : null
-
   return (
     <div className="timedock" ref={bar}>
       <div className="td-main">
@@ -61,43 +50,9 @@ export function TimeBar({ timeline, hotspots, getCanvas }: TimeBarProps) {
           <span aria-hidden="true">{playing ? '❚❚' : '▶'}</span>
         </button>
 
-        <div className="readout" aria-live={playing ? 'off' : 'polite'}>
-          <strong>
-            {playing
-              ? formatMonth(dayToMonth(epoch, head))
-              : from === to
-                ? formatMonth(months[from])
-                : `${formatMonthShort(months[from])} – ${formatMonthShort(months[to])}`}
-          </strong>
-          <span>
-            {shown !== null && <><b>{count(shown)}</b> detections · </>}
-            {playing && run
-              ? `since ${formatMonthShort(dayToMonth(epoch, run.fromDay))}`
-              : `${chosen} ${chosen === 1 ? 'month' : 'months'}`}
-          </span>
-        </div>
-
         <RangeTrack timeline={timeline} hotspots={hotspots} />
 
-        <div className="seg" role="group" aria-label="Speed">
-          {SPEEDS.map((s) => (
-            <button key={s} type="button" aria-pressed={speed === s} onClick={() => timeline.setSpeed(s)}>
-              {s}×
-            </button>
-          ))}
-        </div>
-
-        <ExportVideo timeline={timeline} epoch={epoch} getCanvas={getCanvas} />
-      </div>
-
-      <div className="td-foot">
-        <p className="notice">
-          <span aria-hidden="true">▲</span>
-          <span>
-            Sensor transition 2012-02: MODIS (1 km) → VIIRS (375 m). Raw detection counts are
-            not comparable across this date; use harmonized activity.
-          </span>
-        </p>
+        <ExportVideo timeline={timeline} epoch={hotspots.epoch} getCanvas={getCanvas} />
       </div>
     </div>
   )
@@ -281,14 +236,19 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
           <div className="track-after" style={{ left: `${share(recordLast)}%` }} title="After the record" />
         )}
 
-        <div className="track-band" style={band} />
-
         {switchIndex >= 0 && (
           <div className="track-switch" style={{ left: `${share(switchIndex)}%` }} aria-hidden="true" />
         )}
 
         {playing && <div className="track-head" style={{ left: `${headAt}%` }} aria-hidden="true" />}
+      </div>
 
+      {/* The slider: one long line under the chart, the chosen period drawn on it, and a
+          pill at each end to drag. */}
+      <div className="track-rail">
+        <div className="rail-line" />
+        <div className="rail-band" style={band} />
+        {playing && <div className="rail-head" style={{ left: `${headAt}%` }} aria-hidden="true" />}
         {!playing && (
           <>
             <button
@@ -298,7 +258,9 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
               aria-valuemin={0} aria-valuemax={to} aria-valuenow={from}
               aria-valuetext={formatMonth(months[from])}
               onKeyDown={onKey('from')}
-            />
+            >
+              <span className="handle-tip" aria-hidden="true">{formatMonth(months[from])}</span>
+            </button>
             <button
               type="button" role="slider" className="handle" ref={toHandle}
               style={{ left: `${share(to)}%` }}
@@ -306,7 +268,9 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
               aria-valuemin={from} aria-valuemax={recordLast} aria-valuenow={to}
               aria-valuetext={formatMonth(months[to])}
               onKeyDown={onKey('to')}
-            />
+            >
+              <span className="handle-tip" aria-hidden="true">{formatMonth(months[to])}</span>
+            </button>
           </>
         )}
       </div>
