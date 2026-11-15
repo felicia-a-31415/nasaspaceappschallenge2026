@@ -11,14 +11,14 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from harmonize.calibrate import fit, leave_one_year_out, lift
+from harmonize.calibrate import OVERLAP, fit, leave_one_year_out, lift
+from harmonize.circle_test import circle_models, circle_samples, circle_validation
 from harmonize.compare import compare_sources
 from harmonize.grid import cell_days, monthly_counts, viirs_reference
+from harmonize.query import SWITCH, TERRA_ONLY_END
 from harmonize.schema import clean, flag_static, load_all, load_source, source_paths
 
-SWITCH = pd.Period("2012-02", "M")          # first full month of VIIRS
-TERRA_ONLY_END = pd.Period("2002-07", "M")  # Aqua joins Terra
-OVERLAP = ("2012-02", "2025-12")            # months used to fit and test
+CSV_MAX_ROWS = 2_000_000                    # above this the unified table is Parquet only
 
 
 def build_monthly(monthly, model):
@@ -89,6 +89,19 @@ def _plot_validation(validation, path):
     plt.close(fig)
 
 
+def data_through(root, region, last_hotspot):
+    """The day the data is complete through: the last hotspot, or the last refresh if later.
+
+    `harmonize.refresh` records the day it checked in data/<region>/checked_through.txt,
+    so a quiet week still counts as up to date.
+    """
+    through = pd.Timestamp(last_hotspot).strftime("%Y-%m-%d")
+    note = Path(root) / "data" / region / "checked_through.txt"
+    if note.exists():
+        through = max(through, note.read_text().strip())
+    return through
+
+
 def main(region="quebec", root="."):
     out_dir = Path(root) / "outputs" / region
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -97,13 +110,19 @@ def main(region="quebec", root="."):
            for (dataset, kind), paths in source_paths(root, region).items() if paths}
     comparison = compare_sources(raw)
     comparison.to_csv(out_dir / "source_comparison.csv")
+    del raw
 
     hotspots = flag_static(load_all(root, region))
-    hotspots.to_csv(out_dir / "hotspots_unified.csv.gz", index=False)
+    hotspots.sort_values("latitude").to_parquet(out_dir / "hotspots.parquet", index=False)
+    if len(hotspots) < CSV_MAX_ROWS:
+        hotspots.to_csv(out_dir / "hotspots_unified.csv.gz", index=False)
 
+    # both sensors over the whole period: the web server re-does the correction per circle
     cd = cell_days(viirs_reference(clean(hotspots)))
+    cd.to_parquet(out_dir / "cell_days.parquet", index=False)
+    through = data_through(root, region, hotspots["acq_date"].max())
     start = hotspots["acq_date"].min().to_period("M")
-    end = hotspots["acq_date"].max().to_period("M")
+    end = pd.Period(through, "M")
     monthly = monthly_counts(cd, start, end)
 
     overlap = monthly.loc[OVERLAP[0]:OVERLAP[1]]
@@ -114,8 +133,14 @@ def main(region="quebec", root="."):
     build_daily(cd).to_csv(out_dir / "harmonized_daily.csv", index=False)
     harmonized.round(1).to_csv(out_dir / "harmonized_monthly.csv")
     validation.round(1).to_csv(out_dir / "validation.csv")
+    # the region-wide curve is only right for region-wide totals; circles get their own
+    samples = circle_samples(cd)
+    circle_check = circle_validation(cd, samples=samples)
+    circle_check.round(1).to_csv(out_dir / "circle_validation.csv", index=False)
+    by_radius = {str(radius): m for radius, m in circle_models(samples, fallback=model).items()}
     (out_dir / "model.json").write_text(json.dumps(
-        {**model, "cell_deg": 0.1, "fit_months": list(OVERLAP), "switch_month": str(SWITCH)}, indent=2))
+        {**model, "cell_deg": 0.1, "fit_months": list(OVERLAP), "switch_month": str(SWITCH),
+         "by_radius": by_radius, "data_through": through}, indent=2))
 
     _plot_before(hotspots, out_dir / "before.png")
     _plot_after(monthly, harmonized, out_dir / "after.png")
@@ -127,6 +152,8 @@ def main(region="quebec", root="."):
         print(validation.round(1))
     print("\nMean error predicting a hidden year (%):")
     print(validation[["err_none", "err_fixed", "err_curve"]].mean().round(1).to_string())
+    print("\nSame test on circles the size users pick:")
+    print(circle_check.round(1).to_string(index=False))
     print(f"\nWrote {out_dir}/")
 
 

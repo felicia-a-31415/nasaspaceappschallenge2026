@@ -64,3 +64,9 @@ def test_unlabelled_rows_on_known_static_sources_are_dropped():
     out = clean(df)
     assert len(out) == 2 and out["type_missing"].all()
     assert not out["likely_static"].any()
+
+
+def test_unify_uses_categories_for_repeated_text():
+    out = unify(_modis(), "modis", "archive")
+    for col in ("sensor", "satellite", "dataset", "source_file", "confidence_level", "daynight", "version"):
+        assert isinstance(out[col].dtype, pd.CategoricalDtype), col

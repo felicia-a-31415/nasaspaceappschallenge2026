@@ -4,3 +4,11 @@ claude/
 __pycache__/
 .pytest_cache/
 .superpowers/
+.env
+data/canada/
+outputs/canada/
+cache/
+web/node_modules/
+web/dist/
+web/public/mock/
+frontend-handoff.md

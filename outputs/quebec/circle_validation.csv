@@ -1,0 +1,4 @@
+radius_km,circle_years,median_err_none,median_err_curve,within_2x_curve
+50,884,76.2,75.1,42.1
+100,1553,45.5,44.8,55.3
+200,2858,35.7,31.1,67.8

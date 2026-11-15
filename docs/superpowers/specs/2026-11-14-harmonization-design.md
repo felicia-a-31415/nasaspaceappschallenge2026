@@ -62,7 +62,7 @@ Python with pandas. Each stage writes a file the next one reads.
 - Source CSVs are not modified. Outputs go in a new folder.
 - Files over 100 MB cannot go on GitHub.
 
-## Calls made by Claude, open to change
+## Calls made during design, open to change
 
 - Square size 0.1 degrees. Sizes from 0.05 to 1.0 gave nearly the same ratio; 0.1 is fine enough for a town-sized view.
 - Suomi NPP as the VIIRS reference, because it has the longest overlap with MODIS.
