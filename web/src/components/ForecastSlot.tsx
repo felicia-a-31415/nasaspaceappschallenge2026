@@ -25,10 +25,20 @@ function dayAfter(asOf: string, days: number): string {
  * drawn on the map for it, and it is never worded as where a fire will spread.
  *
  * It asks only in the operational view, for an as-of day the endpoint accepts; otherwise
- * it draws nothing.
+ * it draws nothing. With `explain`, the section stays in place when there is no forecast
+ * and says why in one line, so the reader knows the model was not simply forgotten.
  */
-export function ForecastSlot({ view, dataThrough }: { view: View; dataThrough?: string }) {
+export function ForecastSlot({ view, dataThrough, explain = false }: { view: View; dataThrough?: string; explain?: boolean }) {
   const [asked, setAsked] = useState<Asked | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
+  const none = (why: string) => (explain
+    ? (
+      <section className="forecast">
+        <h3>Spread forecast <span className="kind kind-estimate">Experimental</span></h3>
+        <p className="small note-box">{why}</p>
+      </section>
+    )
+    : null)
   const day = forecastDay(view, dataThrough)
   const { lat, lon, radius_km: radiusKm } = view
   const key = day ? `${lat},${lon},${radiusKm},${day}` : null
@@ -38,10 +48,15 @@ export function ForecastSlot({ view, dataThrough }: { view: View; dataThrough?: 
     const controller = new AbortController()
     let live = true
     setAsked({ key, status: 'loading' })
+    setFailed(null)
     getForecast(view, day, controller.signal)
       .then((forecast) => { if (live) setAsked({ key, status: 'ready', forecast }) })
       // A refusal or a failure is "no forecast": an experimental figure is never guessed at.
-      .catch(() => { if (live) setAsked(null) })
+      .catch(() => {
+        if (!live) return
+        setAsked(null)
+        setFailed(key)
+      })
     return () => {
       live = false
       controller.abort()
@@ -50,7 +65,13 @@ export function ForecastSlot({ view, dataThrough }: { view: View; dataThrough?: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
 
-  if (!key || !asked || asked.key !== key) return null
+  if (!key) {
+    if (view.mode !== 'shift') return null
+    return none(view.lat === null || view.lon === null
+      ? 'Click the map or pick an area to get its 3-day spread forecast.'
+      : 'No forecast for this day: the model needs VIIRS data, from 20 January 2012 on.')
+  }
+  if (!asked || asked.key !== key) return failed === key ? none('The forecast could not be reached. Try again in a moment.') : null
   if (asked.status === 'loading') {
     return (
       <section className="forecast is-loading" aria-busy="true">
@@ -61,15 +82,15 @@ export function ForecastSlot({ view, dataThrough }: { view: View; dataThrough?: 
   }
 
   const { forecast } = asked
-  if (!forecast.available) return null
+  if (!forecast.available) return none(forecast.reason)
   const { place, reasons, as_of: asOf, threshold } = forecast
   // No fire in the circle that day: the server's one sentence, or nothing.
-  if (!place && !reasons.length) return null
+  if (!place && !reasons.length) return none('No fire in this area on that day, so there is nothing to forecast.')
   const odds = `1 in ${Math.round(1 / threshold)}`
 
   return (
     <section className="forecast">
-      <h3>{forecast.label} <span className="kind kind-estimate">Experimental</span></h3>
+      <h3>{forecast.label}{!/experimental/i.test(forecast.label) && <> <span className="kind kind-estimate">Experimental</span></>}</h3>
       {place
         ? (
           <>

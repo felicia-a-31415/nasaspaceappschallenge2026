@@ -11,6 +11,7 @@ import { Method } from './components/Method'
 import { DayStrip } from './components/ops/DayStrip'
 import { OpsKey } from './components/ops/OpsKey'
 import { OpsPanel } from './components/ops/OpsPanel'
+import { Share } from './components/ops/Share'
 import { Panel } from './components/Panel'
 import { SearchBox } from './components/SearchBox'
 import { StatusBar } from './components/StatusBar'
@@ -327,6 +328,7 @@ export default function App() {
               onRadius={chooseRadius}
               onPick={choose}
               onClear={() => setView({ lat: null, lon: null })}
+              onMethod={() => setMethod(true)}
             />
           )}
           {!shift && <Panel
@@ -345,8 +347,14 @@ export default function App() {
           />}
         </div>
         <footer className="sheet-foot">
-          <CopyLink view={view} />
-          <button type="button" onClick={() => setMethod(true)}>Method</button>
+          {shift && data && ops
+            ? <Share view={view} hotspots={data} state={ops} placeName={placeName} getCanvas={getCanvas} />
+            : (
+              <>
+                <CopyLink view={view} />
+                <button type="button" onClick={() => setMethod(true)}>Method</button>
+              </>
+            )}
         </footer>
       </aside>
 

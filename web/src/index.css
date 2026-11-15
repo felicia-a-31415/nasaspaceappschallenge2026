@@ -1303,6 +1303,12 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
    only new colour is on the data: a detection is coloured by how recent it is. */
 
 .sheet-foot .copy-link { margin-right: auto; }
+.share { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; }
+.share-label { margin-right: auto; font: 600 13px/1 var(--sans); color: var(--ink); }
+.share button { flex: 1 1 0; padding-inline: 4px; }
+.sheet-foot .share button:first-of-type { background: var(--ink); color: #111417; font-weight: 600; }
+.sheet-foot .share button:first-of-type:hover { background: #fff; }
+button.link.ops-method { display: inline; align-self: auto; font-size: inherit; }
 .ops-status { margin: 0; font-size: 12px; line-height: 1.4; color: var(--ink-3); }
 .ops-status.is-past { color: var(--warn); }
 
