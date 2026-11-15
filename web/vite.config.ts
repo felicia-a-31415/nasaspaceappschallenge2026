@@ -21,6 +21,8 @@ function dropMockData(): Plugin {
 // the FastAPI server; in production the server serves the built page from the same origin.
 export default defineConfig({
   plugins: [react(), dropMockData()],
+  // Read .env from the repo root, next to the server's. Only VITE_ names reach the page.
+  envDir: '..',
   server: {
     proxy: {
       '/api': { target: 'http://localhost:8000', changeOrigin: true },
