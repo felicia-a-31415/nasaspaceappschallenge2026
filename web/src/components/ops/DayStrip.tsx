@@ -100,7 +100,7 @@ export function DayStrip({ hotspots, asOfDay, year, local, shown, onDay }: DaySt
           <button type="button" className="play" onClick={() => go(asOfDay + 1)} disabled={latest} aria-label="Next day" title="Next day">›</button>
         </div>
 
-        <div className="readout day-readout">
+        <div className="day-readout">
           <label>
             <strong>{formatDate(date)}</strong>
             <input
@@ -140,8 +140,8 @@ export function DayStrip({ hotspots, asOfDay, year, local, shown, onDay }: DaySt
               <path className="day-bar" d={paths} />
               <path className="day-bar is-window" d={paths} clipPath="url(#day-window)" />
             </svg>
-            {recorded < days && <div className="track-after" style={{ left: `${(recorded / days) * 100}%` }} title="After the record" />}
-            <div className="track-band" style={{ left: `${at(windowFrom)}%`, width: `${at(asOfDay + 1) - at(windowFrom)}%` }} />
+            {recorded < days && <div className="day-after" style={{ left: `${(recorded / days) * 100}%` }} title="After the record" />}
+            <div className="day-band" style={{ left: `${at(windowFrom)}%`, width: `${at(asOfDay + 1) - at(windowFrom)}%` }} />
             <div className="day-head" style={{ left: `${at(asOfDay + 1)}%` }} />
           </div>
           <div className="day-months" aria-hidden="true">
