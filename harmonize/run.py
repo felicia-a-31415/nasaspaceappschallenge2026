@@ -15,10 +15,9 @@ from harmonize.calibrate import OVERLAP, fit, leave_one_year_out, lift
 from harmonize.circle_test import circle_models, circle_samples, circle_validation
 from harmonize.compare import compare_sources
 from harmonize.grid import cell_days, monthly_counts, viirs_reference
+from harmonize.query import SWITCH, TERRA_ONLY_END
 from harmonize.schema import clean, flag_static, load_all, load_source, source_paths
 
-SWITCH = pd.Period("2012-02", "M")          # first full month of VIIRS
-TERRA_ONLY_END = pd.Period("2002-07", "M")  # Aqua joins Terra
 CSV_MAX_ROWS = 2_000_000                    # above this the unified table is Parquet only
 
 

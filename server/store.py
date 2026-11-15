@@ -42,6 +42,16 @@ def load_region(folder, curve_source=None):
     )
 
 
+NUMBER_COLUMNS = ("latitude", "longitude", "brightness", "bright_t31", "frp", "scan", "track")
+
+
+def empty_hotspots():
+    """No hotspots, in the shared layout with its column types."""
+    types = {c: float for c in NUMBER_COLUMNS} | {"acq_date": "datetime64[ns]", "type": "Int64",
+                                                  "type_missing": bool, "likely_static": bool}
+    return pd.DataFrame({c: pd.Series(dtype=types.get(c, object)) for c in COLUMNS + ["likely_static"]})
+
+
 def hotspots_in_circle(table, lat, lon, radius_km, start, end):
     """Raw hotspots (shared layout plus `likely_static`) inside a circle and a month range.
 
@@ -60,10 +70,11 @@ def hotspots_in_circle(table, lat, lon, radius_km, start, end):
         parts = [pd.read_parquet(f, filters=band) for f in files]
     else:
         parts = [pd.read_parquet(path, filters=band)]
-    parts = [p for p in parts if len(p)]
-    if not parts:
-        return pd.DataFrame(columns=COLUMNS + ["likely_static"])
-    rows = pd.concat(parts, ignore_index=True)
+    filled = [p for p in parts if len(p)]
+    if not filled:
+        # keep the saved column types, so callers can still use .dt and number methods
+        return parts[0].iloc[:0].reset_index(drop=True) if parts else empty_hotspots()
+    rows = pd.concat(filled, ignore_index=True)
     rows = rows[(rows["acq_date"] >= start.start_time) & (rows["acq_date"] <= end.end_time)]
     inside = distance_km(lat, lon, rows["latitude"].to_numpy(), rows["longitude"].to_numpy()) <= radius_km
     return rows[inside].sort_values(["acq_date", "acq_time"]).reset_index(drop=True)

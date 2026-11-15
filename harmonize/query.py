@@ -8,7 +8,7 @@ from harmonize.calibrate import lift
 from harmonize.grid import CELL_DEG, monthly_counts
 
 RADII_KM = (50, 100, 200)
-SWITCH = pd.Period("2012-02", "M")          # first full month of VIIRS (same as run.SWITCH)
+SWITCH = pd.Period("2012-02", "M")          # first full month of VIIRS; run.py uses this one too
 TERRA_ONLY_END = pd.Period("2002-07", "M")  # Aqua joins Terra
 EARTH_KM = 6371.0
 MIN_COMPARISON_YEARS = 5
@@ -80,14 +80,20 @@ def _sentence(label, total, median, ratio, earlier_higher, first_year):
     return f"{label} was about normal for fire here."
 
 
-def summarize(monthly_full, start, end):
+def summarize(monthly_full, start, end, through=None):
     """Compare the last year in [start, end] with the same months in every other year.
 
-    `monthly_full` is `circle_monthly` over the whole data period. Returns None
-    when fewer than five other years have all of those months.
+    `monthly_full` is `circle_monthly` over the whole data period. `through` is
+    the last day with data (YYYY-MM-DD); a month it ends part-way through is left
+    out, so half a month is not compared with whole ones. Returns None when
+    fewer than five other years have all of those months.
     """
     index = monthly_full.index
     start, end = max(pd.Period(start, "M"), index[0]), min(pd.Period(end, "M"), index[-1])
+    if through is not None:
+        day = pd.Timestamp(through)
+        if day.to_period("M") <= end and day.normalize() < day.to_period("M").end_time.normalize():
+            end = min(end, day.to_period("M") - 1)
     if start > end:
         return None
     year = end.year

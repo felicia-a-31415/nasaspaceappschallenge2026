@@ -223,6 +223,32 @@ def test_stats_outside_quebec_follow_the_fetch(client, places):
     assert body["typical_year"]["years"] == 2                                           # only the years fetched so far
 
 
+def test_stats_for_a_fetched_place_with_no_hotspots_nearby(client, places):
+    client.get("/api/activity", params=SACRAMENTO)
+    for _ in range(4):
+        places.run_one_step()
+    quiet = SACRAMENTO | {"lat": 41.5, "radius_km": 50}                                # same box, far from the fake's one hotspot
+    r = client.get("/api/stats", params=quiet)
+    assert r.status_code == 200 and r.json()["detections"] == 0 and r.json()["peak_day"] is None
+    r = client.get("/api/download/hotspots.csv", params=quiet)
+    assert r.status_code == 200 and len(r.text.strip().splitlines()) == 1
+
+
+def test_circle_cut_off_at_180_degrees_is_partial(client, places):
+    near_edge = {"lat": 0.0, "lon": 179.5, "radius_km": 200}
+    client.get("/api/activity", params=near_edge)
+    for state in places.places.values():
+        state.status = "fetched"
+    assert client.get("/api/activity", params=near_edge).json()["coverage"] == "partial"
+
+
+def test_dots_are_sent_compressed_once(client):
+    r = client.get("/api/hotspots", params={"region": "quebec"}, headers={"Accept-Encoding": "gzip"})
+    assert r.headers["content-encoding"] == "gzip" and r.json()["count"] == 9       # decodes once: not gzipped twice
+    plain = client.get("/api/hotspots", params={"region": "quebec"}, headers={"Accept-Encoding": "identity"})
+    assert "content-encoding" not in plain.headers and plain.json()["count"] == 9
+
+
 def test_top_areas_rank_within_one_camera(client):
     areas = client.get("/api/top-areas", params={"from": "2005-01", "to": "2015-12", "limit": 2}).json()["areas"]
     assert len(areas) == 2 and all(a["sensor"] == "VIIRS" for a in areas)             # range reaches VIIRS years: MODIS not mixed in

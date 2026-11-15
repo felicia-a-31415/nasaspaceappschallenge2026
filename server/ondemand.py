@@ -13,6 +13,7 @@ Saved layout per place:
 import json
 import logging
 import math
+import os
 import threading
 import time
 from collections import deque
@@ -60,6 +61,18 @@ def box_for(lat, lon):
     centre_lon = max(-180 + half, min(180 - half, round(lon)))
     return (float(centre_lon - half), float(centre_lat - HALF_DEG),
             float(centre_lon + half), float(centre_lat + HALF_DEG))
+
+
+def _write_atomic(path, write):
+    """Write through a temporary file and rename, so readers never see a half-written file."""
+    path = Path(path)
+    tmp = path.with_name(f".{path.name}.{threading.get_ident()}.tmp")
+    write(tmp)
+    os.replace(tmp, path)
+
+
+def _to_parquet(df, path):
+    _write_atomic(path, lambda tmp: df.to_parquet(tmp, index=False))
 
 
 def _circle_fits(box, lat, lon, radius_km):
@@ -155,9 +168,15 @@ class Places:
     # ---- finding and queueing -------------------------------------------------
 
     def find(self, lat, lon, radius_km):
-        """A saved or in-progress place whose box holds the whole circle."""
+        """A saved or in-progress place whose box holds the whole circle.
+
+        When several do, the one with the most data wins: fetched first, then
+        the most years done, and failed places last.
+        """
+        rank = {"fetched": 0, "fetching": 1, "queued": 1, "failed": 2}
         with self.lock:
-            return next((s for s in self.places.values() if _circle_fits(s.box, lat, lon, radius_km)), None)
+            fits = [s for s in self.places.values() if _circle_fits(s.box, lat, lon, radius_km)]
+            return min(fits, key=lambda s: (rank.get(s.status, 1), -s.years_done), default=None)
 
     def request(self, lat, lon, radius_km):
         """The place for this circle: an existing one, or a new one put in the queue."""
@@ -261,7 +280,7 @@ class Places:
         (folder / "hotspots").mkdir(parents=True, exist_ok=True)
         if len(raw):
             hotspots = flag_static(unify(raw, step.dataset, "api"))
-            hotspots.to_parquet(folder / "hotspots" / f"{step.key}.parquet", index=False)
+            _to_parquet(hotspots, folder / "hotspots" / f"{step.key}.parquet")
             part = cell_days(viirs_reference(clean(hotspots)))
         else:
             part = pd.DataFrame(columns=CD_COLUMNS)
@@ -280,7 +299,7 @@ class Places:
             parts = [pd.read_parquet(f).assign(_file=f.name) for f in files]
             everything = flag_static(pd.concat(parts, ignore_index=True).drop(columns="likely_static"))
             for name, rows in everything.groupby("_file"):
-                rows.drop(columns="_file").to_parquet(self._folder(state.id) / "hotspots" / name, index=False)
+                _to_parquet(rows.drop(columns="_file"), self._folder(state.id) / "hotspots" / name)
             cd = cell_days(viirs_reference(clean(everything.drop(columns="_file"))))
         else:
             cd = pd.DataFrame(columns=CD_COLUMNS)
@@ -336,7 +355,7 @@ class Places:
         self._cd[place_id] = cd
         folder = self._folder(place_id)
         folder.mkdir(parents=True, exist_ok=True)
-        cd.to_parquet(folder / "cell_days.parquet", index=False)
+        _to_parquet(cd, folder / "cell_days.parquet")
 
     def _save(self, state):
         folder = self._folder(state.id)
@@ -344,7 +363,7 @@ class Places:
         with self.lock:
             meta = {k: getattr(state, k) for k in ("id", "box", "status", "steps_done", "years_done", "years_total",
                                                    "error", "data_start", "data_through", "requested_at")}
-        (folder / "meta.json").write_text(json.dumps(meta, indent=2))
+        _write_atomic(folder / "meta.json", lambda tmp: tmp.write_text(json.dumps(meta, indent=2)))
 
     def _load_saved(self):
         """Read saved places; anything that was waiting or mid-fetch goes back in the queue."""

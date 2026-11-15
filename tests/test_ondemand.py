@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from harmonize.firms import FILE_COLUMNS, FirmsError, MissingKey
-from server.ondemand import Places, box_for, plan_steps
+from server.ondemand import Places, PlaceState, box_for, plan_steps
 
 MODEL = {"a": 1.0, "b": 1.0, "sigma": 0.5}
 TODAY = date(2026, 11, 14)
@@ -173,3 +173,19 @@ def test_missing_key_says_so(tmp_path, fake_fetch):
     s = p.request(38.5, -121.5, 100)
     p.run_one_step(retry_sleep=lambda s: None)
     assert s.status == "failed" and "key" in s.error and not fake_fetch.calls
+
+
+def test_find_prefers_the_place_with_data(places):
+    failed = PlaceState("a", (-127.0, 33.0, -117.0, 43.0), status="failed")
+    fetched = PlaceState("b", (-126.0, 34.0, -116.0, 44.0), status="fetched", years_done=26)
+    fetching = PlaceState("c", (-125.0, 34.0, -115.0, 44.0), status="fetching", years_done=3)
+    places.places.update({"a": failed, "c": fetching, "b": fetched})
+    assert places.find(38.5, -121.0, 100) is fetched
+    del places.places["b"]
+    assert places.find(38.5, -121.0, 100) is fetching
+
+
+def test_no_temporary_files_are_left_behind(places, tmp_path):
+    places.request(38.5, -121.5, 100)
+    places.run_one_step()
+    assert not [f for f in (tmp_path / "cache").rglob("*") if f.name.endswith(".tmp")]

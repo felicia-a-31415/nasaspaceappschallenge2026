@@ -88,6 +88,14 @@ def test_sentence_for_part_of_a_year_and_single_month():  # Review Focus 5
     assert summarize(full, "2024-07", "2024-07")["sentence"] == "July 2024 was about normal for fire here."
 
 
+def test_a_month_still_in_progress_is_left_out_of_the_comparison():
+    full = _series({y: 10 for y in range(2001, 2027)})
+    s = summarize(full, "2026-01", "2026-07", through="2026-07-14")
+    assert s["months"] == list(range(1, 7)) and "January to June 2026" in s["sentence"]
+    assert summarize(full, "2026-01", "2026-07", through="2026-07-31")["months"] == list(range(1, 8))
+    assert summarize(full, "2026-07", "2026-07", through="2026-07-14") is None
+
+
 def test_too_few_years_gives_no_summary():
     assert summarize(_series({2024: 5, 2025: 5, 2026: 5}), "2026-01", "2026-12") is None
 

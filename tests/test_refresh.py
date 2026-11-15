@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from harmonize.firms import FILE_COLUMNS
-from harmonize.refresh import refresh
+from harmonize.refresh import REFRESH_SPAN_DAYS, refresh
 from harmonize.run import data_through
 from harmonize.schema import load_all
 
@@ -51,12 +51,12 @@ def tmp_region(tmp_path):
 def test_refresh_adds_only_new_days_inside_quebec(tmp_region, fake_fetch):
     added = refresh("tiny", root=tmp_region, fetch=fake_fetch, today=TODAY)
     call = fake_fetch.calls_for("modis")[0]
-    assert (call.start, call.end) == (date(2026, 11, 11), TODAY)
-    assert added == {"modis": 4}                                  # 4 days, Quebec rows only; no VIIRS folders, no VIIRS fetch
+    assert (call.start, call.end) == (date(2026, 11, 11), TODAY - timedelta(days=1))   # today is not over yet
+    assert added == {"modis": 3}                                  # 3 days, Quebec rows only; no VIIRS folders, no VIIRS fetch
     files = list((tmp_region / "data/tiny/modis").glob("fire_nrt_api_*.csv"))
     assert len(files) == 1 and set(pd.read_csv(files[0])["latitude"]) == {50.0}
-    assert len(load_all(tmp_region, "tiny")) == 3 + 4            # the pipeline's loader picks the new file up
-    assert data_through(tmp_region, "tiny", "2026-11-13") == "2026-11-14"
+    assert len(load_all(tmp_region, "tiny")) == 3 + 3            # the pipeline's loader picks the new file up
+    assert data_through(tmp_region, "tiny", "2026-11-12") == "2026-11-13"
 
 
 def test_refresh_twice_adds_nothing(tmp_region, fake_fetch):
@@ -77,4 +77,16 @@ def test_a_quiet_week_still_counts_as_up_to_date(tmp_region):
     quiet = lambda dataset, box, start, end, key, **kw: pd.DataFrame(columns=FILE_COLUMNS)
     assert refresh("tiny", root=tmp_region, fetch=quiet, today=TODAY) == {"modis": 0}
     assert not list((tmp_region / "data/tiny/modis").glob("fire_nrt_api_*.csv"))
-    assert data_through(tmp_region, "tiny", "2026-11-10") == "2026-11-14"
+    assert data_through(tmp_region, "tiny", "2026-11-10") == "2026-11-13"
+
+
+def test_a_long_gap_is_fetched_in_pieces_that_fit_the_budget(tmp_region, fake_fetch):
+    waits = []
+    later = TODAY + timedelta(days=2000)
+    refresh("tiny", root=tmp_region, fetch=fake_fetch, today=later,
+            wait_for_budget=lambda key, needed: waits.append(needed))
+    calls = fake_fetch.calls_for("modis")
+    assert len(calls) > 1 and len(waits) == len(calls)
+    assert calls[0].start == date(2026, 11, 11) and calls[-1].end == later - timedelta(days=1)
+    assert all(b.start == a.end + timedelta(days=1) for a, b in zip(calls, calls[1:]))        # no gaps, no overlaps
+    assert all(need <= 2 * REFRESH_SPAN_DAYS for need in waits)

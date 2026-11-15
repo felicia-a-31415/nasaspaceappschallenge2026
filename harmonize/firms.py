@@ -18,6 +18,7 @@ Budget: 5,000 units per 10 minutes per key, about 2 units per day requested.
 """
 import io
 import os
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
@@ -80,8 +81,19 @@ def _get(url, key, client, sleep, is_valid):
     raise FirmsError(f"FIRMS did not return data ({problem})".replace(key, "<key>"))
 
 
+_shared = None
+_shared_lock = threading.Lock()
+
+
 def _own_client(client):
-    return client or httpx.Client(limits=httpx.Limits(max_connections=40))
+    """The caller's client, else one client shared by every call (httpx clients are thread-safe)."""
+    global _shared
+    if client is not None:
+        return client
+    with _shared_lock:
+        if _shared is None:
+            _shared = httpx.Client(limits=httpx.Limits(max_connections=40))
+        return _shared
 
 
 def budget_used(key, client=None):

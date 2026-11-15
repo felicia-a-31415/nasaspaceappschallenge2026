@@ -6,6 +6,7 @@ else is fetched from NASA FIRMS on demand (see server/ondemand.py).
 Run with:  uvicorn server.app:app --port 8000
 """
 import calendar
+import gzip
 import os
 import re
 from contextlib import asynccontextmanager
@@ -22,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 
 from harmonize.borders import BOX, coverage
 from harmonize.query import RADII_KM, circle_monthly, monthly_csv, summarize
-from server.ondemand import Places, box_for
+from server.ondemand import Places, _circle_fits, box_for
 from server import outlook, stats, weather
 from server.store import hotspots_in_circle, load_region
 
@@ -45,11 +46,7 @@ class Selection:
             raise HTTPException(422, "That place is not on the map. Latitude runs from -90 to 90 and longitude from -180 to 180.")
         if radius_km not in RADII_KM:
             raise HTTPException(422, f"The radius must be one of {', '.join(str(r) for r in RADII_KM)} km.")
-        for label, value in (("from", start), ("to", end)):
-            if value is not None and not MONTH.match(value):
-                raise HTTPException(422, f"The '{label}' month must look like 2023-06.")
-        if start and end and start > end:
-            raise HTTPException(422, "The 'from' month is after the 'to' month.")
+        check_months(start, end)
         self.lat, self.lon, self.radius_km, self.start, self.end = lat, lon, radius_km, start, end
 
     def file_name(self, what):
@@ -80,7 +77,7 @@ def answer(table, sel, coverage_label, progress=None):
             for month, r in zip(months.index, months.itertuples())]
     return {"coverage": coverage_label, "progress": progress, "curve_source": table.curve_source,
             "data_through": table.data_through, "months": rows,
-            "summary": summarize(full, start, end) if len(months) else None, "detail": None}
+            "summary": summarize(full, start, end, table.data_through) if len(months) else None, "detail": None}
 
 
 def empty_answer(coverage_label, detail=None, progress=None):
@@ -128,6 +125,10 @@ def create_app(data_dir, cache_dir, places=None, weather_daily=weather.daily, we
     def region_dots():
         return stats.dots_json(region_hotspots(), region.curve_source, region.data_through, BOX)
 
+    @lru_cache(maxsize=1)
+    def region_dots_gzip():
+        return gzip.compress(region_dots(), compresslevel=6)       # compressed once, not on every page load
+
     cached_weather = lru_cache(maxsize=256)(weather_daily)
 
     @app.exception_handler(RequestValidationError)
@@ -150,7 +151,10 @@ def create_app(data_dir, cache_dir, places=None, weather_daily=weather.daily, we
         state = places.request(sel.lat, sel.lon, sel.radius_km)
         if state.status == "failed":
             return None, "outside", None, state.error
-        return places.table(state), state.status, state.progress(), None
+        label = state.status
+        if label == "fetched" and not _circle_fits(state.box, sel.lat, sel.lon, sel.radius_km):
+            label = "partial"           # the box stops at 180 degrees longitude; part of the circle is left out
+        return places.table(state), label, state.progress(), None
 
     @app.get("/api/activity")
     def activity(lat: float, lon: float, radius_km: int = 100,
@@ -193,10 +197,13 @@ def create_app(data_dir, cache_dir, places=None, weather_daily=weather.daily, we
                                  headers={"Content-Disposition": f'attachment; filename="{sel.file_name("hotspots")}"'})
 
     @app.get("/api/hotspots")
-    def hotspots(region_name: str = Query("quebec", alias="region")):
+    def hotspots(request: Request, region_name: str = Query("quebec", alias="region")):
         if region_name != region.curve_source:
             raise HTTPException(404, f"Only '{region.curve_source}' is available.")
-        return Response(region_dots(), media_type="application/json")
+        if "gzip" in request.headers.get("accept-encoding", "").lower():
+            return Response(region_dots_gzip(), media_type="application/json",
+                            headers={"Content-Encoding": "gzip", "Vary": "Accept-Encoding"})
+        return Response(region_dots(), media_type="application/json", headers={"Vary": "Accept-Encoding"})
 
     @app.get("/api/stats")
     def circle_stats(lat: float, lon: float, radius_km: int = 100,
