@@ -1,11 +1,16 @@
-// Place search. This is the one service outside our own server the page talks to:
+// Place search without a Google key (see googlePlaces.ts for the one with). This is a
+// service outside our own server:
 // Nominatim, OpenStreetMap's free search, which needs no key. Its terms ask for at most
 // one request a second and for the credit to be shown, so both are handled here.
+
+import { GOOGLE_PLACES_ENABLED, autocomplete, newSessionToken, placeDetail } from './googlePlaces'
 
 const ENDPOINT = 'https://nominatim.openstreetmap.org/search'
 const MIN_GAP_MS = 1000
 
-export const PLACE_SEARCH_CREDIT = 'Place search: OpenStreetMap Nominatim'
+export const PLACE_SEARCH_CREDIT = GOOGLE_PLACES_ENABLED
+  ? 'Place search: Google'
+  : 'Place search: OpenStreetMap Nominatim'
 
 export interface Place {
   name: string
@@ -28,30 +33,44 @@ export interface Suggestion {
 }
 
 /**
- * Suggestions for a half-typed place name. THIS IS THE SEAM FOR GOOGLE PLACES.
+ * Suggestions for a half-typed place name, from Google Places when a browser key is set
+ * (see googlePlaces.ts). Without one the list is empty and the search box offers only
+ * "search for what I typed": Nominatim's terms forbid using it for type-ahead.
  *
- * Nothing is asked today, so the list is empty and the search box offers only "search
- * for what I typed". To add suggestions, return them from here (the box already waits
- * 250 ms after the last keystroke, drops stale answers through `signal`, and handles the
- * list, the keyboard and the screen reader). Nominatim's terms forbid using it for
- * type-ahead, which is why it is not used here.
+ * The box waits after the last keystroke and drops stale answers through `signal`.
+ * Every autocomplete call and the details call that ends the search share one session
+ * token, so Google bills the whole search as one session.
  */
-export async function suggestPlaces(_query: string, _signal?: AbortSignal): Promise<Suggestion[]> {
-  return []
+let session: string | null = null
+
+export async function suggestPlaces(query: string, signal?: AbortSignal): Promise<Suggestion[]> {
+  if (!GOOGLE_PLACES_ENABLED) return []
+  session ??= newSessionToken()
+  const found = await autocomplete(query, session, signal)
+  return found.map((s) => ({ id: s.placeId, title: s.main, subtitle: s.secondary || undefined }))
 }
 
-/**
- * Turn a chosen suggestion into a point on the map. With Google this becomes a place
- * details lookup by `id`; until then the name is simply searched for.
- */
-export function resolveSuggestion(suggestion: Suggestion, signal?: AbortSignal): Promise<Place | null> {
-  return searchPlace([suggestion.title, suggestion.subtitle].filter(Boolean).join(', '), signal)
+/** Turn a chosen suggestion into a point on the map. */
+export async function resolveSuggestion(suggestion: Suggestion, signal?: AbortSignal): Promise<Place | null> {
+  if (!GOOGLE_PLACES_ENABLED) {
+    return searchPlace([suggestion.title, suggestion.subtitle].filter(Boolean).join(', '), signal)
+  }
+  const token = session ?? newSessionToken()
+  session = null // the details call closes this billing session
+  const place = await placeDetail(suggestion.id, token, signal)
+  if (!Number.isFinite(place.lat) || !Number.isFinite(place.lon)) return null
+  return { name: place.name || suggestion.title, lat: place.lat, lon: place.lon }
 }
 
 let lastCall = 0
 
 /** Null when nothing matched. Throws when the service itself fails. */
 export async function searchPlace(query: string, signal?: AbortSignal): Promise<Place | null> {
+  if (GOOGLE_PLACES_ENABLED) {
+    // Enter without picking: take Google's top suggestion, as Google Maps does.
+    const [first] = await suggestPlaces(query, signal)
+    return first ? resolveSuggestion(first, signal) : null
+  }
   const wait = MIN_GAP_MS - (Date.now() - lastCall)
   if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
   lastCall = Date.now()

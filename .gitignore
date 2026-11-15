@@ -12,3 +12,6 @@ web/node_modules/
 web/dist/
 web/public/mock/
 frontend-handoff.md
+# Firebase CLI
+firebase-debug.log
+.firebase/

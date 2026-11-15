@@ -1,0 +1,26 @@
+# Builds the image with the Google Maps browser key baked into the page.
+# `gcloud run deploy --source .` cannot pass a build argument, and .env is never uploaded,
+# so the key comes from Secret Manager here. See docs/deploy.md.
+#
+#   gcloud builds submit --config cloudbuild.yaml
+steps:
+  - name: gcr.io/cloud-builders/docker
+    entrypoint: bash
+    args:
+      - -c
+      - docker build --build-arg VITE_GOOGLE_MAPS_API_KEY="$$MAPS_KEY" -t "$_IMAGE" .
+    secretEnv: [MAPS_KEY]
+
+images: [$_IMAGE]
+
+substitutions:
+  _IMAGE: northamerica-northeast1-docker.pkg.dev/${PROJECT_ID}/cloud-run-source-deploy/fire-calendar:latest
+
+availableSecrets:
+  secretManager:
+    - versionName: projects/${PROJECT_ID}/secrets/google-maps-browser-key/versions/latest
+      env: MAPS_KEY
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  dynamicSubstitutions: true

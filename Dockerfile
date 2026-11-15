@@ -5,6 +5,9 @@
 # --- the page, only if the frontend has been merged ---
 FROM node:20-slim AS web
 WORKDIR /src
+# Optional browser key for search suggestions (docker build --build-arg VITE_GOOGLE_MAPS_API_KEY=...)
+ARG VITE_GOOGLE_MAPS_API_KEY=""
+ENV VITE_GOOGLE_MAPS_API_KEY=$VITE_GOOGLE_MAPS_API_KEY
 COPY . .
 RUN if [ -f web/package.json ]; then \
       cd web && npm ci && VITE_USE_MOCKS=false npm run build; \

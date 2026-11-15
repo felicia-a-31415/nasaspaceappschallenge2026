@@ -1,0 +1,2553 @@
+{
+ "label": "Experimental spread forecast",
+ "cell_deg": [
+  0.02,
+  0.03
+ ],
+ "reach_km": 30.0,
+ "served_model_held_out": 2023,
+ "seasons": [
+  {
+   "season": 2013,
+   "train_rows": 3274067,
+   "test_rows": 483902,
+   "by_horizon": {
+    "1": {
+     "model": {
+      "all": {
+       "roc_auc": 0.961,
+       "avg_precision": 0.406,
+       "brier": 0.0126,
+       "base_rate": 0.0175
+      },
+      "new_squares": {
+       "roc_auc": 0.945,
+       "avg_precision": 0.247,
+       "brier": 0.008,
+       "base_rate": 0.0094
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.012,
+       "flag_precision": 0.574
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.116,
+       "flag_precision": 0.444
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.002,
+        "observed": 0.004,
+        "rows": 55474
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.071,
+        "observed": 0.119,
+        "rows": 7353
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.141,
+        "observed": 0.192,
+        "rows": 5569
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.243,
+        "observed": 0.317,
+        "rows": 2331
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.368,
+        "observed": 0.433,
+        "rows": 1413
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.546,
+        "observed": 0.574,
+        "rows": 122
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.965,
+       "avg_precision": 0.489,
+       "brier": 0.0116,
+       "base_rate": 0.0175
+      },
+      "new_squares": {
+       "roc_auc": 0.95,
+       "avg_precision": 0.302,
+       "brier": 0.0077,
+       "base_rate": 0.0094
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.029,
+       "flag_precision": 0.603
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.143,
+       "flag_precision": 0.529
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.948,
+       "avg_precision": 0.3,
+       "brier": 0.0142,
+       "base_rate": 0.0175
+      },
+      "new_squares": {
+       "roc_auc": 0.925,
+       "avg_precision": 0.147,
+       "brier": 0.0086,
+       "base_rate": 0.0094
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.006,
+       "flag_precision": 0.19
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.053,
+       "flag_precision": 0.228
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.933,
+       "avg_precision": 0.287,
+       "brier": 0.0138,
+       "base_rate": 0.0175
+      },
+      "new_squares": {
+       "roc_auc": 0.902,
+       "avg_precision": 0.136,
+       "brier": 0.0086,
+       "base_rate": 0.0094
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    },
+    "2": {
+     "model": {
+      "all": {
+       "roc_auc": 0.937,
+       "avg_precision": 0.387,
+       "brier": 0.0193,
+       "base_rate": 0.0259
+      },
+      "new_squares": {
+       "roc_auc": 0.918,
+       "avg_precision": 0.245,
+       "brier": 0.0142,
+       "base_rate": 0.0167
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.018,
+       "flag_precision": 0.487
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.143,
+       "flag_precision": 0.433
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.003,
+        "observed": 0.007,
+        "rows": 49922
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.071,
+        "observed": 0.115,
+        "rows": 9883
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.14,
+        "observed": 0.205,
+        "rows": 8091
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.245,
+        "observed": 0.297,
+        "rows": 3728
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.376,
+        "observed": 0.426,
+        "rows": 3072
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.558,
+        "observed": 0.487,
+        "rows": 390
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.72,
+        "observed": 0.5,
+        "rows": 4
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.949,
+       "avg_precision": 0.469,
+       "brier": 0.0179,
+       "base_rate": 0.0259
+      },
+      "new_squares": {
+       "roc_auc": 0.936,
+       "avg_precision": 0.345,
+       "brier": 0.0133,
+       "base_rate": 0.0167
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.048,
+       "flag_precision": 0.709
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.171,
+       "flag_precision": 0.576
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.917,
+       "avg_precision": 0.28,
+       "brier": 0.0216,
+       "base_rate": 0.0259
+      },
+      "new_squares": {
+       "roc_auc": 0.891,
+       "avg_precision": 0.147,
+       "brier": 0.0153,
+       "base_rate": 0.0167
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.013,
+       "flag_precision": 0.195
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.088,
+       "flag_precision": 0.243
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.894,
+       "avg_precision": 0.285,
+       "brier": 0.0209,
+       "base_rate": 0.0259
+      },
+      "new_squares": {
+       "roc_auc": 0.86,
+       "avg_precision": 0.161,
+       "brier": 0.0151,
+       "base_rate": 0.0167
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    },
+    "3": {
+     "model": {
+      "all": {
+       "roc_auc": 0.917,
+       "avg_precision": 0.375,
+       "brier": 0.0254,
+       "base_rate": 0.0335
+      },
+      "new_squares": {
+       "roc_auc": 0.896,
+       "avg_precision": 0.242,
+       "brier": 0.0198,
+       "base_rate": 0.0232
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.07,
+       "flag_precision": 0.493
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.179,
+       "flag_precision": 0.405
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.004,
+        "observed": 0.011,
+        "rows": 48036
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.071,
+        "observed": 0.119,
+        "rows": 10113
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.141,
+        "observed": 0.177,
+        "rows": 9045
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.246,
+        "observed": 0.265,
+        "rows": 3944
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.388,
+        "observed": 0.363,
+        "rows": 4228
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.584,
+        "observed": 0.485,
+        "rows": 1752
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.749,
+        "observed": 0.539,
+        "rows": 306
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.939,
+       "avg_precision": 0.451,
+       "brier": 0.0238,
+       "base_rate": 0.0335
+      },
+      "new_squares": {
+       "roc_auc": 0.926,
+       "avg_precision": 0.338,
+       "brier": 0.0186,
+       "base_rate": 0.0232
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.049,
+       "flag_precision": 0.662
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.187,
+       "flag_precision": 0.527
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.898,
+       "avg_precision": 0.286,
+       "brier": 0.0277,
+       "base_rate": 0.0335
+      },
+      "new_squares": {
+       "roc_auc": 0.871,
+       "avg_precision": 0.169,
+       "brier": 0.021,
+       "base_rate": 0.0232
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.034,
+       "flag_precision": 0.309
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.137,
+       "flag_precision": 0.293
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.874,
+       "avg_precision": 0.292,
+       "brier": 0.0271,
+       "base_rate": 0.0335
+      },
+      "new_squares": {
+       "roc_auc": 0.84,
+       "avg_precision": 0.174,
+       "brier": 0.0209,
+       "base_rate": 0.0232
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    },
+    "5": {
+     "model": {
+      "all": {
+       "roc_auc": 0.889,
+       "avg_precision": 0.371,
+       "brier": 0.0354,
+       "base_rate": 0.0462
+      },
+      "new_squares": {
+       "roc_auc": 0.865,
+       "avg_precision": 0.248,
+       "brier": 0.0297,
+       "base_rate": 0.0348
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.063,
+       "flag_precision": 0.503
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.168,
+       "flag_precision": 0.418
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.005,
+        "observed": 0.018,
+        "rows": 45907
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.071,
+        "observed": 0.134,
+        "rows": 10914
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.141,
+        "observed": 0.189,
+        "rows": 11647
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.243,
+        "observed": 0.263,
+        "rows": 5300
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.386,
+        "observed": 0.38,
+        "rows": 5718
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.583,
+        "observed": 0.491,
+        "rows": 2277
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.752,
+        "observed": 0.576,
+        "rows": 384
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.923,
+       "avg_precision": 0.451,
+       "brier": 0.0331,
+       "base_rate": 0.0462
+      },
+      "new_squares": {
+       "roc_auc": 0.911,
+       "avg_precision": 0.347,
+       "brier": 0.0278,
+       "base_rate": 0.0348
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.045,
+       "flag_precision": 0.567
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.191,
+       "flag_precision": 0.522
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.872,
+       "avg_precision": 0.297,
+       "brier": 0.0379,
+       "base_rate": 0.0462
+      },
+      "new_squares": {
+       "roc_auc": 0.845,
+       "avg_precision": 0.184,
+       "brier": 0.0313,
+       "base_rate": 0.0348
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.041,
+       "flag_precision": 0.35
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.146,
+       "flag_precision": 0.293
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.848,
+       "avg_precision": 0.311,
+       "brier": 0.0371,
+       "base_rate": 0.0462
+      },
+      "new_squares": {
+       "roc_auc": 0.815,
+       "avg_precision": 0.2,
+       "brier": 0.0309,
+       "base_rate": 0.0348
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.1
+      }
+     }
+    },
+    "7": {
+     "model": {
+      "all": {
+       "roc_auc": 0.865,
+       "avg_precision": 0.361,
+       "brier": 0.0442,
+       "base_rate": 0.0568
+      },
+      "new_squares": {
+       "roc_auc": 0.842,
+       "avg_precision": 0.25,
+       "brier": 0.0387,
+       "base_rate": 0.0452
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.067,
+       "flag_precision": 0.508
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.164,
+       "flag_precision": 0.419
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.006,
+        "observed": 0.023,
+        "rows": 45655
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.071,
+        "observed": 0.135,
+        "rows": 11523
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.142,
+        "observed": 0.195,
+        "rows": 13248
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.242,
+        "observed": 0.258,
+        "rows": 6329
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.386,
+        "observed": 0.374,
+        "rows": 6447
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.581,
+        "observed": 0.502,
+        "rows": 3053
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.753,
+        "observed": 0.537,
+        "rows": 583
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.906,
+       "avg_precision": 0.441,
+       "brier": 0.0415,
+       "base_rate": 0.0568
+      },
+      "new_squares": {
+       "roc_auc": 0.894,
+       "avg_precision": 0.347,
+       "brier": 0.0363,
+       "base_rate": 0.0452
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.049,
+       "flag_precision": 0.565
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.178,
+       "flag_precision": 0.525
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.852,
+       "avg_precision": 0.299,
+       "brier": 0.0465,
+       "base_rate": 0.0568
+      },
+      "new_squares": {
+       "roc_auc": 0.827,
+       "avg_precision": 0.199,
+       "brier": 0.0402,
+       "base_rate": 0.0452
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.049,
+       "flag_precision": 0.361
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.154,
+       "flag_precision": 0.313
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.823,
+       "avg_precision": 0.308,
+       "brier": 0.0459,
+       "base_rate": 0.0568
+      },
+      "new_squares": {
+       "roc_auc": 0.791,
+       "avg_precision": 0.21,
+       "brier": 0.0399,
+       "base_rate": 0.0452
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.001,
+       "flag_precision": 0.188
+      }
+     }
+    }
+   }
+  },
+  {
+   "season": 2023,
+   "train_rows": 2335988,
+   "test_rows": 1421981,
+   "by_horizon": {
+    "1": {
+     "model": {
+      "all": {
+       "roc_auc": 0.951,
+       "avg_precision": 0.426,
+       "brier": 0.0178,
+       "base_rate": 0.0243
+      },
+      "new_squares": {
+       "roc_auc": 0.925,
+       "avg_precision": 0.195,
+       "brier": 0.0097,
+       "base_rate": 0.0109
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.021,
+       "flag_precision": 0.422
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.08,
+       "flag_precision": 0.387
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.003,
+        "observed": 0.006,
+        "rows": 166383
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.071,
+        "observed": 0.122,
+        "rows": 19861
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.141,
+        "observed": 0.186,
+        "rows": 13879
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.243,
+        "observed": 0.297,
+        "rows": 4765
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.373,
+        "observed": 0.376,
+        "rows": 2510
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.585,
+        "observed": 0.401,
+        "rows": 656
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.757,
+        "observed": 0.521,
+        "rows": 140
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.958,
+       "avg_precision": 0.451,
+       "brier": 0.0172,
+       "base_rate": 0.0243
+      },
+      "new_squares": {
+       "roc_auc": 0.936,
+       "avg_precision": 0.213,
+       "brier": 0.0096,
+       "base_rate": 0.0109
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.064,
+       "flag_precision": 0.377
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.164,
+       "flag_precision": 0.332
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.951,
+       "avg_precision": 0.4,
+       "brier": 0.0187,
+       "base_rate": 0.0243
+      },
+      "new_squares": {
+       "roc_auc": 0.921,
+       "avg_precision": 0.162,
+       "brier": 0.01,
+       "base_rate": 0.0109
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.011,
+       "flag_precision": 0.258
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.028,
+       "flag_precision": 0.252
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.941,
+       "avg_precision": 0.37,
+       "brier": 0.0182,
+       "base_rate": 0.0243
+      },
+      "new_squares": {
+       "roc_auc": 0.905,
+       "avg_precision": 0.138,
+       "brier": 0.0101,
+       "base_rate": 0.0109
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    },
+    "2": {
+     "model": {
+      "all": {
+       "roc_auc": 0.925,
+       "avg_precision": 0.413,
+       "brier": 0.0266,
+       "base_rate": 0.0356
+      },
+      "new_squares": {
+       "roc_auc": 0.896,
+       "avg_precision": 0.225,
+       "brier": 0.0179,
+       "base_rate": 0.0206
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.035,
+       "flag_precision": 0.528
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.115,
+       "flag_precision": 0.417
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.003,
+        "observed": 0.011,
+        "rows": 152399
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.07,
+        "observed": 0.131,
+        "rows": 25765
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.14,
+        "observed": 0.203,
+        "rows": 19492
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.244,
+        "observed": 0.288,
+        "rows": 8189
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.377,
+        "observed": 0.382,
+        "rows": 6208
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.581,
+        "observed": 0.505,
+        "rows": 1567
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.781,
+        "observed": 0.615,
+        "rows": 403
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.94,
+       "avg_precision": 0.462,
+       "brier": 0.0252,
+       "base_rate": 0.0356
+      },
+      "new_squares": {
+       "roc_auc": 0.92,
+       "avg_precision": 0.27,
+       "brier": 0.0173,
+       "base_rate": 0.0206
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.084,
+       "flag_precision": 0.456
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.181,
+       "flag_precision": 0.412
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.922,
+       "avg_precision": 0.381,
+       "brier": 0.028,
+       "base_rate": 0.0356
+      },
+      "new_squares": {
+       "roc_auc": 0.889,
+       "avg_precision": 0.193,
+       "brier": 0.0184,
+       "base_rate": 0.0206
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.013,
+       "flag_precision": 0.402
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.049,
+       "flag_precision": 0.35
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.911,
+       "avg_precision": 0.373,
+       "brier": 0.0272,
+       "base_rate": 0.0356
+      },
+      "new_squares": {
+       "roc_auc": 0.874,
+       "avg_precision": 0.179,
+       "brier": 0.0188,
+       "base_rate": 0.0206
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    },
+    "3": {
+     "model": {
+      "all": {
+       "roc_auc": 0.906,
+       "avg_precision": 0.406,
+       "brier": 0.0336,
+       "base_rate": 0.0445
+      },
+      "new_squares": {
+       "roc_auc": 0.877,
+       "avg_precision": 0.237,
+       "brier": 0.025,
+       "base_rate": 0.0287
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.037,
+       "flag_precision": 0.537
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.119,
+       "flag_precision": 0.431
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.004,
+        "observed": 0.016,
+        "rows": 149801
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.07,
+        "observed": 0.142,
+        "rows": 27828
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.14,
+        "observed": 0.215,
+        "rows": 22669
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.244,
+        "observed": 0.302,
+        "rows": 9676
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.379,
+        "observed": 0.395,
+        "rows": 8388
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.578,
+        "observed": 0.511,
+        "rows": 2263
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.78,
+        "observed": 0.634,
+        "rows": 618
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.925,
+       "avg_precision": 0.452,
+       "brier": 0.0318,
+       "base_rate": 0.0445
+      },
+      "new_squares": {
+       "roc_auc": 0.905,
+       "avg_precision": 0.289,
+       "brier": 0.0239,
+       "base_rate": 0.0287
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.087,
+       "flag_precision": 0.502
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.183,
+       "flag_precision": 0.448
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.903,
+       "avg_precision": 0.375,
+       "brier": 0.0353,
+       "base_rate": 0.0445
+      },
+      "new_squares": {
+       "roc_auc": 0.871,
+       "avg_precision": 0.208,
+       "brier": 0.0257,
+       "base_rate": 0.0287
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.013,
+       "flag_precision": 0.388
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.054,
+       "flag_precision": 0.385
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.889,
+       "avg_precision": 0.372,
+       "brier": 0.0345,
+       "base_rate": 0.0445
+      },
+      "new_squares": {
+       "roc_auc": 0.854,
+       "avg_precision": 0.201,
+       "brier": 0.026,
+       "base_rate": 0.0287
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    },
+    "5": {
+     "model": {
+      "all": {
+       "roc_auc": 0.877,
+       "avg_precision": 0.393,
+       "brier": 0.0446,
+       "base_rate": 0.0582
+      },
+      "new_squares": {
+       "roc_auc": 0.846,
+       "avg_precision": 0.247,
+       "brier": 0.0361,
+       "base_rate": 0.0417
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.042,
+       "flag_precision": 0.528
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.127,
+       "flag_precision": 0.431
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.005,
+        "observed": 0.024,
+        "rows": 141334
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.071,
+        "observed": 0.148,
+        "rows": 30855
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.142,
+        "observed": 0.217,
+        "rows": 30088
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.244,
+        "observed": 0.295,
+        "rows": 14422
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.381,
+        "observed": 0.396,
+        "rows": 12640
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.576,
+        "observed": 0.498,
+        "rows": 3682
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.778,
+        "observed": 0.653,
+        "rows": 931
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.903,
+       "avg_precision": 0.436,
+       "brier": 0.0428,
+       "base_rate": 0.0582
+      },
+      "new_squares": {
+       "roc_auc": 0.883,
+       "avg_precision": 0.303,
+       "brier": 0.0347,
+       "base_rate": 0.0417
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.08,
+       "flag_precision": 0.52
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.171,
+       "flag_precision": 0.474
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.874,
+       "avg_precision": 0.366,
+       "brier": 0.0462,
+       "base_rate": 0.0582
+      },
+      "new_squares": {
+       "roc_auc": 0.843,
+       "avg_precision": 0.238,
+       "brier": 0.0364,
+       "base_rate": 0.0417
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.021,
+       "flag_precision": 0.47
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.102,
+       "flag_precision": 0.432
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.857,
+       "avg_precision": 0.368,
+       "brier": 0.0458,
+       "base_rate": 0.0582
+      },
+      "new_squares": {
+       "roc_auc": 0.821,
+       "avg_precision": 0.219,
+       "brier": 0.0375,
+       "base_rate": 0.0417
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    },
+    "7": {
+     "model": {
+      "all": {
+       "roc_auc": 0.858,
+       "avg_precision": 0.384,
+       "brier": 0.0533,
+       "base_rate": 0.0688
+      },
+      "new_squares": {
+       "roc_auc": 0.827,
+       "avg_precision": 0.249,
+       "brier": 0.0448,
+       "base_rate": 0.0517
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.043,
+       "flag_precision": 0.512
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.13,
+       "flag_precision": 0.416
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.006,
+        "observed": 0.03,
+        "rows": 139932
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.07,
+        "observed": 0.151,
+        "rows": 33260
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.141,
+        "observed": 0.223,
+        "rows": 32956
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.244,
+        "observed": 0.289,
+        "rows": 16385
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.38,
+        "observed": 0.38,
+        "rows": 15090
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.578,
+        "observed": 0.478,
+        "rows": 4567
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.772,
+        "observed": 0.652,
+        "rows": 1217
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.887,
+       "avg_precision": 0.427,
+       "brier": 0.0511,
+       "base_rate": 0.0688
+      },
+      "new_squares": {
+       "roc_auc": 0.867,
+       "avg_precision": 0.308,
+       "brier": 0.0429,
+       "base_rate": 0.0517
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.09,
+       "flag_precision": 0.527
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.178,
+       "flag_precision": 0.463
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.858,
+       "avg_precision": 0.368,
+       "brier": 0.0548,
+       "base_rate": 0.0688
+      },
+      "new_squares": {
+       "roc_auc": 0.829,
+       "avg_precision": 0.25,
+       "brier": 0.0449,
+       "base_rate": 0.0517
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.021,
+       "flag_precision": 0.524
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.101,
+       "flag_precision": 0.452
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.838,
+       "avg_precision": 0.37,
+       "brier": 0.0543,
+       "base_rate": 0.0688
+      },
+      "new_squares": {
+       "roc_auc": 0.803,
+       "avg_precision": 0.232,
+       "brier": 0.0461,
+       "base_rate": 0.0517
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    }
+   }
+  },
+  {
+   "season": 2026,
+   "train_rows": 3383975,
+   "test_rows": 373994,
+   "by_horizon": {
+    "1": {
+     "model": {
+      "all": {
+       "roc_auc": 0.973,
+       "avg_precision": 0.34,
+       "brier": 0.0062,
+       "base_rate": 0.008
+      },
+      "new_squares": {
+       "roc_auc": 0.958,
+       "avg_precision": 0.17,
+       "brier": 0.0037,
+       "base_rate": 0.0041
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.009,
+       "flag_precision": 0.358
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.088,
+       "flag_precision": 0.296
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.002,
+        "observed": 0.002,
+        "rows": 53025
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.07,
+        "observed": 0.075,
+        "rows": 5162
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.14,
+        "observed": 0.145,
+        "rows": 3695
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.242,
+        "observed": 0.24,
+        "rows": 1363
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.361,
+        "observed": 0.29,
+        "rows": 676
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.562,
+        "observed": 0.348,
+        "rows": 66
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.729,
+        "observed": 1.0,
+        "rows": 1
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.978,
+       "avg_precision": 0.436,
+       "brier": 0.0056,
+       "base_rate": 0.008
+      },
+      "new_squares": {
+       "roc_auc": 0.966,
+       "avg_precision": 0.222,
+       "brier": 0.0035,
+       "base_rate": 0.0041
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.042,
+       "flag_precision": 0.486
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.188,
+       "flag_precision": 0.349
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.966,
+       "avg_precision": 0.249,
+       "brier": 0.0069,
+       "base_rate": 0.008
+      },
+      "new_squares": {
+       "roc_auc": 0.948,
+       "avg_precision": 0.115,
+       "brier": 0.0039,
+       "base_rate": 0.0041
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.008,
+       "flag_precision": 0.288
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.074,
+       "flag_precision": 0.209
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.953,
+       "avg_precision": 0.266,
+       "brier": 0.0065,
+       "base_rate": 0.008
+      },
+      "new_squares": {
+       "roc_auc": 0.93,
+       "avg_precision": 0.118,
+       "brier": 0.0038,
+       "base_rate": 0.0041
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    },
+    "2": {
+     "model": {
+      "all": {
+       "roc_auc": 0.956,
+       "avg_precision": 0.333,
+       "brier": 0.0094,
+       "base_rate": 0.0121
+      },
+      "new_squares": {
+       "roc_auc": 0.939,
+       "avg_precision": 0.183,
+       "brier": 0.0066,
+       "base_rate": 0.0074
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.016,
+       "flag_precision": 0.379
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.131,
+       "flag_precision": 0.326
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.003,
+        "observed": 0.003,
+        "rows": 46840
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.07,
+        "observed": 0.075,
+        "rows": 7406
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.141,
+        "observed": 0.138,
+        "rows": 6071
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.243,
+        "observed": 0.24,
+        "rows": 2483
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.372,
+        "observed": 0.32,
+        "rows": 1683
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.566,
+        "observed": 0.393,
+        "rows": 173
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.732,
+        "observed": 0.235,
+        "rows": 17
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.964,
+       "avg_precision": 0.426,
+       "brier": 0.0087,
+       "base_rate": 0.0121
+      },
+      "new_squares": {
+       "roc_auc": 0.951,
+       "avg_precision": 0.259,
+       "brier": 0.0062,
+       "base_rate": 0.0074
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.086,
+       "flag_precision": 0.485
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.245,
+       "flag_precision": 0.38
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.942,
+       "avg_precision": 0.247,
+       "brier": 0.0105,
+       "base_rate": 0.0121
+      },
+      "new_squares": {
+       "roc_auc": 0.918,
+       "avg_precision": 0.117,
+       "brier": 0.0071,
+       "base_rate": 0.0074
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.02,
+       "flag_precision": 0.249
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.103,
+       "flag_precision": 0.196
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.93,
+       "avg_precision": 0.274,
+       "brier": 0.0098,
+       "base_rate": 0.0121
+      },
+      "new_squares": {
+       "roc_auc": 0.907,
+       "avg_precision": 0.145,
+       "brier": 0.0068,
+       "base_rate": 0.0074
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    },
+    "3": {
+     "model": {
+      "all": {
+       "roc_auc": 0.94,
+       "avg_precision": 0.321,
+       "brier": 0.0121,
+       "base_rate": 0.0154
+      },
+      "new_squares": {
+       "roc_auc": 0.919,
+       "avg_precision": 0.186,
+       "brier": 0.0091,
+       "base_rate": 0.0103
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.053,
+       "flag_precision": 0.394
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.176,
+       "flag_precision": 0.33
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.004,
+        "observed": 0.004,
+        "rows": 43956
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.07,
+        "observed": 0.068,
+        "rows": 8352
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.14,
+        "observed": 0.12,
+        "rows": 7028
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.244,
+        "observed": 0.208,
+        "rows": 2905
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.38,
+        "observed": 0.308,
+        "rows": 2452
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.568,
+        "observed": 0.394,
+        "rows": 787
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.759,
+        "observed": 0.4,
+        "rows": 80
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.955,
+       "avg_precision": 0.405,
+       "brier": 0.0112,
+       "base_rate": 0.0154
+      },
+      "new_squares": {
+       "roc_auc": 0.94,
+       "avg_precision": 0.249,
+       "brier": 0.0087,
+       "base_rate": 0.0103
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.092,
+       "flag_precision": 0.487
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.245,
+       "flag_precision": 0.358
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.924,
+       "avg_precision": 0.247,
+       "brier": 0.0134,
+       "base_rate": 0.0154
+      },
+      "new_squares": {
+       "roc_auc": 0.896,
+       "avg_precision": 0.127,
+       "brier": 0.01,
+       "base_rate": 0.0103
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.059,
+       "flag_precision": 0.249
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.164,
+       "flag_precision": 0.215
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.911,
+       "avg_precision": 0.272,
+       "brier": 0.0125,
+       "base_rate": 0.0154
+      },
+      "new_squares": {
+       "roc_auc": 0.887,
+       "avg_precision": 0.15,
+       "brier": 0.0093,
+       "base_rate": 0.0103
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      }
+     }
+    },
+    "5": {
+     "model": {
+      "all": {
+       "roc_auc": 0.918,
+       "avg_precision": 0.298,
+       "brier": 0.0164,
+       "base_rate": 0.0201
+      },
+      "new_squares": {
+       "roc_auc": 0.895,
+       "avg_precision": 0.167,
+       "brier": 0.0133,
+       "base_rate": 0.0145
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.057,
+       "flag_precision": 0.354
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.186,
+       "flag_precision": 0.283
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.006,
+        "observed": 0.006,
+        "rows": 41124
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.071,
+        "observed": 0.058,
+        "rows": 7011
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.141,
+        "observed": 0.11,
+        "rows": 8806
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.243,
+        "observed": 0.171,
+        "rows": 4621
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.38,
+        "observed": 0.259,
+        "rows": 4245
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.575,
+        "observed": 0.36,
+        "rows": 1239
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.763,
+        "observed": 0.315,
+        "rows": 181
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.94,
+       "avg_precision": 0.394,
+       "brier": 0.0148,
+       "base_rate": 0.0201
+      },
+      "new_squares": {
+       "roc_auc": 0.924,
+       "avg_precision": 0.253,
+       "brier": 0.0122,
+       "base_rate": 0.0145
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.101,
+       "flag_precision": 0.439
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.263,
+       "flag_precision": 0.385
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.898,
+       "avg_precision": 0.246,
+       "brier": 0.0179,
+       "base_rate": 0.0201
+      },
+      "new_squares": {
+       "roc_auc": 0.868,
+       "avg_precision": 0.126,
+       "brier": 0.0146,
+       "base_rate": 0.0145
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.069,
+       "flag_precision": 0.263
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.187,
+       "flag_precision": 0.209
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.891,
+       "avg_precision": 0.273,
+       "brier": 0.0163,
+       "base_rate": 0.0201
+      },
+      "new_squares": {
+       "roc_auc": 0.865,
+       "avg_precision": 0.158,
+       "brier": 0.0131,
+       "base_rate": 0.0145
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.002,
+       "flag_precision": 0.189
+      }
+     }
+    },
+    "7": {
+     "model": {
+      "all": {
+       "roc_auc": 0.908,
+       "avg_precision": 0.298,
+       "brier": 0.0192,
+       "base_rate": 0.0233
+      },
+      "new_squares": {
+       "roc_auc": 0.885,
+       "avg_precision": 0.175,
+       "brier": 0.0161,
+       "base_rate": 0.0175
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.068,
+       "flag_precision": 0.385
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.206,
+       "flag_precision": 0.278
+      },
+      "calibration_new": [
+       {
+        "from": 0,
+        "to": 0.05,
+        "predicted": 0.008,
+        "observed": 0.007,
+        "rows": 39334
+       },
+       {
+        "from": 0.05,
+        "to": 0.1,
+        "predicted": 0.071,
+        "observed": 0.052,
+        "rows": 7272
+       },
+       {
+        "from": 0.1,
+        "to": 0.2,
+        "predicted": 0.14,
+        "observed": 0.094,
+        "rows": 8728
+       },
+       {
+        "from": 0.2,
+        "to": 0.3,
+        "predicted": 0.244,
+        "observed": 0.17,
+        "rows": 5510
+       },
+       {
+        "from": 0.3,
+        "to": 0.5,
+        "predicted": 0.381,
+        "observed": 0.245,
+        "rows": 5530
+       },
+       {
+        "from": 0.5,
+        "to": 0.7,
+        "predicted": 0.58,
+        "observed": 0.383,
+        "rows": 1616
+       },
+       {
+        "from": 0.7,
+        "to": 1.0,
+        "predicted": 0.761,
+        "observed": 0.4,
+        "rows": 270
+       }
+      ]
+     },
+     "perfect_forecast": {
+      "all": {
+       "roc_auc": 0.932,
+       "avg_precision": 0.378,
+       "brier": 0.0176,
+       "base_rate": 0.0233
+      },
+      "new_squares": {
+       "roc_auc": 0.917,
+       "avg_precision": 0.253,
+       "brier": 0.0148,
+       "base_rate": 0.0175
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.1,
+       "flag_precision": 0.475
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.253,
+       "flag_precision": 0.362
+      }
+     },
+     "no_weather": {
+      "all": {
+       "roc_auc": 0.889,
+       "avg_precision": 0.243,
+       "brier": 0.0213,
+       "base_rate": 0.0233
+      },
+      "new_squares": {
+       "roc_auc": 0.861,
+       "avg_precision": 0.132,
+       "brier": 0.018,
+       "base_rate": 0.0175
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.084,
+       "flag_precision": 0.282
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.215,
+       "flag_precision": 0.197
+      }
+     },
+     "distance_only": {
+      "all": {
+       "roc_auc": 0.881,
+       "avg_precision": 0.277,
+       "brier": 0.019,
+       "base_rate": 0.0233
+      },
+      "new_squares": {
+       "roc_auc": 0.856,
+       "avg_precision": 0.166,
+       "brier": 0.0157,
+       "base_rate": 0.0175
+      },
+      "new_at_0.5": {
+       "threshold": 0.5,
+       "caught_share": 0.0,
+       "flag_precision": 0.0
+      },
+      "new_at_0.3": {
+       "threshold": 0.3,
+       "caught_share": 0.083,
+       "flag_precision": 0.33
+      }
+     }
+    }
+   }
+  }
+ ],
+ "importance": [
+  {
+   "feature": "d_now",
+   "drop_in_avg_precision": 0.1458
+  },
+  {
+   "feature": "crosswind",
+   "drop_in_avg_precision": 0.0576
+  },
+  {
+   "feature": "precip_mm",
+   "drop_in_avg_precision": 0.044
+  },
+  {
+   "feature": "days_since",
+   "drop_in_avg_precision": 0.0357
+  },
+  {
+   "feature": "horizon",
+   "drop_in_avg_precision": 0.0281
+  },
+  {
+   "feature": "n_5",
+   "drop_in_avg_precision": 0.0256
+  },
+  {
+   "feature": "frp_10",
+   "drop_in_avg_precision": 0.0246
+  },
+  {
+   "feature": "doy",
+   "drop_in_avg_precision": 0.0229
+  },
+  {
+   "feature": "temp_max_c",
+   "drop_in_avg_precision": 0.0126
+  },
+  {
+   "feature": "n_20",
+   "drop_in_avg_precision": 0.0092
+  },
+  {
+   "feature": "lat",
+   "drop_in_avg_precision": 0.0087
+  },
+  {
+   "feature": "downwind",
+   "drop_in_avg_precision": 0.0084
+  },
+  {
+   "feature": "n_3",
+   "drop_in_avg_precision": 0.0071
+  },
+  {
+   "feature": "d_prev",
+   "drop_in_avg_precision": 0.007
+  },
+  {
+   "feature": "rain_3d",
+   "drop_in_avg_precision": 0.0062
+  },
+  {
+   "feature": "approach",
+   "drop_in_avg_precision": 0.0049
+  },
+  {
+   "feature": "d_prev2",
+   "drop_in_avg_precision": 0.0043
+  },
+  {
+   "feature": "self_prev",
+   "drop_in_avg_precision": 0.0034
+  },
+  {
+   "feature": "growth_20",
+   "drop_in_avg_precision": 0.0032
+  },
+  {
+   "feature": "n_10",
+   "drop_in_avg_precision": 0.0019
+  },
+  {
+   "feature": "burned_season",
+   "drop_in_avg_precision": 0.0009
+  },
+  {
+   "feature": "self_now",
+   "drop_in_avg_precision": 0.0
+  },
+  {
+   "feature": "wind_ms",
+   "drop_in_avg_precision": -0.0027
+  },
+  {
+   "feature": "humidity_pct",
+   "drop_in_avg_precision": -0.0033
+  }
+ ],
+ "zones": {
+  "1": [
+   {
+    "area_share": 0.02,
+    "model_caught": 0.399,
+    "nearest_caught": 0.347,
+    "model_threshold": 0.078
+   },
+   {
+    "area_share": 0.05,
+    "model_caught": 0.622,
+    "nearest_caught": 0.595,
+    "model_threshold": 0.026
+   },
+   {
+    "area_share": 0.1,
+    "model_caught": 0.777,
+    "nearest_caught": 0.743,
+    "model_threshold": 0.01
+   },
+   {
+    "area_share": 0.2,
+    "model_caught": 0.89,
+    "nearest_caught": 0.861,
+    "model_threshold": 0.003
+   }
+  ],
+  "2": [
+   {
+    "area_share": 0.02,
+    "model_caught": 0.288,
+    "nearest_caught": 0.261,
+    "model_threshold": 0.13
+   },
+   {
+    "area_share": 0.05,
+    "model_caught": 0.493,
+    "nearest_caught": 0.479,
+    "model_threshold": 0.049
+   },
+   {
+    "area_share": 0.1,
+    "model_caught": 0.672,
+    "nearest_caught": 0.645,
+    "model_threshold": 0.018
+   },
+   {
+    "area_share": 0.2,
+    "model_caught": 0.824,
+    "nearest_caught": 0.796,
+    "model_threshold": 0.005
+   }
+  ],
+  "3": [
+   {
+    "area_share": 0.02,
+    "model_caught": 0.235,
+    "nearest_caught": 0.218,
+    "model_threshold": 0.161
+   },
+   {
+    "area_share": 0.05,
+    "model_caught": 0.423,
+    "nearest_caught": 0.414,
+    "model_threshold": 0.064
+   },
+   {
+    "area_share": 0.1,
+    "model_caught": 0.6,
+    "nearest_caught": 0.581,
+    "model_threshold": 0.026
+   },
+   {
+    "area_share": 0.2,
+    "model_caught": 0.772,
+    "nearest_caught": 0.749,
+    "model_threshold": 0.008
+   }
+  ],
+  "5": [
+   {
+    "area_share": 0.02,
+    "model_caught": 0.185,
+    "nearest_caught": 0.171,
+    "model_threshold": 0.225
+   },
+   {
+    "area_share": 0.05,
+    "model_caught": 0.345,
+    "nearest_caught": 0.339,
+    "model_threshold": 0.102
+   },
+   {
+    "area_share": 0.1,
+    "model_caught": 0.513,
+    "nearest_caught": 0.502,
+    "model_threshold": 0.042
+   },
+   {
+    "area_share": 0.2,
+    "model_caught": 0.694,
+    "nearest_caught": 0.683,
+    "model_threshold": 0.014
+   }
+  ],
+  "7": [
+   {
+    "area_share": 0.02,
+    "model_caught": 0.154,
+    "nearest_caught": 0.149,
+    "model_threshold": 0.264
+   },
+   {
+    "area_share": 0.05,
+    "model_caught": 0.299,
+    "nearest_caught": 0.301,
+    "model_threshold": 0.127
+   },
+   {
+    "area_share": 0.1,
+    "model_caught": 0.462,
+    "nearest_caught": 0.458,
+    "model_threshold": 0.056
+   },
+   {
+    "area_share": 0.2,
+    "model_caught": 0.648,
+    "nearest_caught": 0.646,
+    "model_threshold": 0.019
+   }
+  ]
+ },
+ "forecast_test": {
+  "window": [
+   "2023-05-20",
+   "2023-08-31"
+  ],
+  "source": "Open-Meteo, JMA GSM forecast",
+  "by_horizon": {
+   "1": {
+    "missing_forecast_share": 0.003,
+    "today_weather": {
+     "avg_precision": 0.196,
+     "zone2_caught": 0.37,
+     "zone5_caught": 0.597
+    },
+    "archived_forecast": {
+     "avg_precision": 0.203,
+     "zone2_caught": 0.393,
+     "zone5_caught": 0.632
+    },
+    "perfect_forecast": {
+     "avg_precision": 0.214,
+     "zone2_caught": 0.407,
+     "zone5_caught": 0.635
+    }
+   },
+   "2": {
+    "missing_forecast_share": 0.003,
+    "today_weather": {
+     "avg_precision": 0.226,
+     "zone2_caught": 0.268,
+     "zone5_caught": 0.466
+    },
+    "archived_forecast": {
+     "avg_precision": 0.252,
+     "zone2_caught": 0.295,
+     "zone5_caught": 0.519
+    },
+    "perfect_forecast": {
+     "avg_precision": 0.272,
+     "zone2_caught": 0.315,
+     "zone5_caught": 0.535
+    }
+   },
+   "3": {
+    "missing_forecast_share": 0.003,
+    "today_weather": {
+     "avg_precision": 0.238,
+     "zone2_caught": 0.22,
+     "zone5_caught": 0.396
+    },
+    "archived_forecast": {
+     "avg_precision": 0.268,
+     "zone2_caught": 0.236,
+     "zone5_caught": 0.436
+    },
+    "perfect_forecast": {
+     "avg_precision": 0.291,
+     "zone2_caught": 0.254,
+     "zone5_caught": 0.462
+    }
+   }
+  }
+ }
+}

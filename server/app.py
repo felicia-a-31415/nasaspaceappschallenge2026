@@ -7,10 +7,13 @@ Run with:  uvicorn server.app:app --port 8000
 """
 import calendar
 import gzip
+import json
 import os
+import pickle
 import re
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 
@@ -23,9 +26,10 @@ from fastapi.staticfiles import StaticFiles
 
 from harmonize.borders import BOX, coverage
 from harmonize.query import RADII_KM, circle_monthly, monthly_csv, summarize
+from harmonize.schema import clean
 from server.ondemand import Places, _circle_fits, box_for
-from server import outlook, stats, weather
-from server.store import hotspots_in_circle, load_region
+from server import forecast, outlook, spread, stats, weather
+from server.store import empty_hotspots, hotspots_in_circle, load_region
 
 MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -36,6 +40,8 @@ TOO_FAR = "Fire history is not available this far north or south."
 NOTHING_YET = "There is no fire history for this place yet."
 NO_WEATHER = "NASA's weather service did not answer. Try again in a moment."
 WEATHER_DEFAULT_MONTHS = 12
+SPREAD_MAX_TILES = 40
+NO_SPREAD_MODEL = "The spread model is missing. Run: python -m harmonize.spread_train"
 
 
 class Selection:
@@ -93,9 +99,17 @@ def check_months(start, end):
         raise HTTPException(422, "The 'from' month is after the 'to' month.")
 
 
-def create_app(data_dir, cache_dir, places=None, weather_daily=weather.daily, web_dir="web/dist"):
-    """`places` and `weather_daily` are injected by tests; left out, the app builds its own
-    places and runs its fetch worker."""
+def viirs_only(hotspots):
+    """VIIRS vegetation fires from both satellites, as the spread model was trained on."""
+    rows = clean(hotspots)
+    rows = rows[rows["sensor"].astype(str) == "VIIRS"]
+    return rows[["latitude", "longitude", "acq_date", "frp"]].reset_index(drop=True)
+
+
+def create_app(data_dir, cache_dir, places=None, weather_daily=weather.daily, web_dir="web/dist", spread_model=None,
+               forecast_daily=forecast.as_issued):
+    """`places`, `weather_daily`, `spread_model` and `forecast_daily` are injected by tests; left out, the app builds its own
+    places and runs its fetch worker, and loads the spread model from `data_dir`."""
     data_dir = Path(data_dir)
     region = load_region(data_dir)
     own_worker = places is None
@@ -129,7 +143,53 @@ def create_app(data_dir, cache_dir, places=None, weather_daily=weather.daily, we
     def region_dots_gzip():
         return gzip.compress(region_dots(), compresslevel=6)       # compressed once, not on every page load
 
-    cached_weather = lru_cache(maxsize=256)(weather_daily)
+    cached_weather = lru_cache(maxsize=1024)(weather_daily)
+
+    @lru_cache(maxsize=1)
+    def region_viirs():
+        if region.hotspots_path is None:
+            raise HTTPException(404, "The hotspot table is missing. Run: python -m harmonize.run")
+        return viirs_only(pd.read_parquet(region.hotspots_path))
+
+    @lru_cache(maxsize=1)
+    def spread_bundle():
+        if spread_model is not None:
+            return spread_model
+        path = data_dir / "spread_model.pkl"
+        if not path.exists():
+            raise HTTPException(404, NO_SPREAD_MODEL)
+        with open(path, "rb") as fh:
+            bundle = pickle.load(fh)
+        checks = data_dir / "spread_validation.json"
+        bundle["tested"] = spread_tested(json.loads(checks.read_text())) if checks.exists() else None
+        return bundle
+
+    cached_forecast = lru_cache(maxsize=512)(forecast_daily)
+
+    def tile_forecasts(tiles, issue, days):
+        """What was forecast on `issue` for the days after, per weather grid point, as add_ahead takes it."""
+        def one(t):
+            try:
+                return t, cached_forecast(t[0], t[1], issue, days)
+            except forecast.ForecastError:
+                return t, None
+        with ThreadPoolExecutor(8) as pool:
+            got = {t: rows for t, rows in pool.map(one, tiles) if rows}
+        if not got:
+            return None
+        if all(isinstance(rows, dict) for rows in got.values()):
+            return {k: spread.weather_frame({t: rows.get(k, []) for t, rows in got.items()}) for k in range(1, days + 1)}
+        return spread.weather_frame({t: rows for t, rows in got.items() if isinstance(rows, list)})
+
+    def tile_weather(tiles, first, last):
+        """NASA POWER rows for each weather grid point, fetched side by side; a point that fails is left out."""
+        def one(t):
+            try:
+                return t, cached_weather(t[0], t[1], first, last)
+            except weather.WeatherError:
+                return t, []
+        with ThreadPoolExecutor(8) as pool:
+            return dict(pool.map(one, tiles))
 
     @app.exception_handler(RequestValidationError)
     async def plain_validation_error(request: Request, exc: RequestValidationError):
@@ -274,6 +334,44 @@ def create_app(data_dir, cache_dir, places=None, weather_daily=weather.daily, we
         body = outlook.outlook(table.cd, sel.lat, sel.lon, sel.radius_km, day, days, table.data_start.start_time.date())
         return {"coverage": where, "detail": None, **body}
 
+    @app.get("/api/spread")
+    def spread_forecast(lat: float, lon: float, radius_km: int = 50, on: str | None = None, days: int = 3):
+        sel = Selection(lat, lon, radius_km, None, None)
+        if on is not None and not DAY.match(on):
+            raise HTTPException(422, "The 'on' day must look like 2023-06-01.")
+        if not 1 <= days <= spread.MAX_DAYS:
+            raise HTTPException(422, f"'days' must be from 1 to {spread.MAX_DAYS}.")
+        bundle = spread_bundle()
+        table, where, _, detail = table_for(sel)
+        if table is None:
+            return {"coverage": where, "detail": detail or NOTHING_YET, "label": spread.SPREAD_LABEL}
+        try:
+            day = date.fromisoformat(on or table.data_through)
+        except ValueError:
+            raise HTTPException(422, "The 'on' day must be a real date, like 2023-06-01.") from None
+        if day > date.fromisoformat(table.data_through):
+            raise HTTPException(422, f"The forecast can only start from a day up to {table.data_through}, "
+                                     "the last day with fire records.")
+        if day < spread.FIRST_DAY:
+            raise HTTPException(422, f"The forecast needs VIIRS, which starts on {spread.FIRST_DAY.isoformat()}.")
+        first = pd.Timestamp(day - timedelta(days=spread.LOOKBACK_DAYS + 3))
+        reach = sel.radius_km + spread.REACH_KM + 5
+        if table is region:
+            fires = stats.in_circle(region_viirs(), sel.lat, sel.lon, reach)
+        else:
+            raw = hotspots_in_circle(table, sel.lat, sel.lon, reach, first.to_period("M"), pd.Period(day, "M"))
+            fires = viirs_only(raw) if raw is not None and len(raw) else viirs_only(empty_hotspots())
+        fires = fires[(fires["acq_date"] >= first) & (fires["acq_date"] <= pd.Timestamp(day))]
+        today = fires[fires["acq_date"] == pd.Timestamp(day)]
+        tl, tn = spread.tile_of(today["latitude"].to_numpy(), today["longitude"].to_numpy())
+        tiles = sorted(set(zip(tl.tolist(), tn.tolist())))[:SPREAD_MAX_TILES]
+        w = spread.weather_frame(tile_weather(tiles, day - timedelta(days=5), day))
+        ahead = tile_forecasts(tiles, day, days) if bundle.get("forecast_model") is not None else None
+        body = spread.forecast(bundle["model"], fires, day, w, days, sel.lat, sel.lon, sel.radius_km,
+                               forecast_model=bundle.get("forecast_model"), ahead=ahead,
+                               ahead_source=bundle.get("forecast_source"))
+        return {"coverage": where, "detail": None, **body, "tested": bundle.get("tested")}
+
     @app.get("/api/about")
     def about():
         def rows(name):
@@ -294,6 +392,28 @@ def create_app(data_dir, cache_dir, places=None, weather_daily=weather.daily, we
         app.mount("/", StaticFiles(directory=web_dir, html=True), name="web")
 
     return app
+
+
+def spread_tested(report):
+    """The held-out season's scores in a few numbers the page can quote."""
+    held = report.get("served_model_held_out")
+    season = next((r for r in report.get("seasons", []) if r["season"] == held), None)
+    if season is None:
+        return None
+    out = {"season": held, "by_day": {}}
+    for h, row in season["by_horizon"].items():
+        m, b = row["model"], row["distance_only"]
+        out["by_day"][h] = {"caught_share": m["new_at_0.5"]["caught_share"], "flag_precision": m["new_at_0.5"]["flag_precision"],
+                            "avg_precision": m["new_squares"]["avg_precision"] if m["new_squares"] else None,
+                            "baseline_avg_precision": b["new_squares"]["avg_precision"] if b["new_squares"] else None}
+    out["zones"] = report.get("zones")
+    test = report.get("forecast_test")
+    if test:
+        out["forecast"] = {"window": test["window"], "source": test["source"],
+                           "by_day": {h: {name: row[name]["avg_precision"]
+                                          for name in ("today_weather", "archived_forecast", "perfect_forecast")}
+                                      for h, row in test["by_horizon"].items()}}
+    return out
 
 
 def _default_app():

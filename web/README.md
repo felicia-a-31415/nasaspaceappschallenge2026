@@ -55,9 +55,12 @@ npm run build      # type check and production build
 
 ## Decisions worth knowing
 
-- **No API keys anywhere.** Base map: CARTO's dark style (free, no key). Place search:
-  Nominatim (free, no key). A key used in a browser is visible to everyone, so nothing
-  secret can live here; the NASA key stays on the server.
+- **One optional key.** Base map: CARTO's dark style (free, no key). Place search:
+  Nominatim (free, no key) unless `VITE_GOOGLE_MAPS_API_KEY` is set at build time, in
+  which case the search box drops down Google Places suggestions as you type
+  (`src/googlePlaces.ts`). That key is visible to everyone who opens the page, so restrict
+  it in the Google Cloud console to the site's address and to the Places API (New) only.
+  Nothing secret lives here; the NASA key stays on the server.
 - **All 723,108 dots live on the graphics card.** Time filters there through
   `DataFilterExtension`, so the data is never rebuilt. Playing runs through the chosen
   period, A to B: the map shows everything from A up to the playhead, so fires stay once
