@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 
-import { getAbout, getTopAreas, getWeather } from './api'
+import { getAbout, getTopAreas } from './api'
 import { CalendarView } from './components/CalendarView'
 import { CopyLink } from './components/CopyLink'
 import { Legend } from './components/Legend'
@@ -24,7 +24,6 @@ import { useTimeline } from './hooks/useTimeline'
 import { useView } from './hooks/useView'
 import { nameNear } from './places'
 import { dayToDate, formatDate } from './lib/days'
-import { count } from './lib/format'
 import { circlePolygon } from './lib/geo'
 import { computeAnomaly } from './map/anomaly'
 import { sliceByDay } from './map/field'
@@ -33,8 +32,6 @@ import { MapView } from './map/MapView'
 import type { AboutResponse, Selection, TopArea } from './types'
 import { isDefaultView, RADII_KM } from './view'
 import type { Mode } from './view'
-
-const WEATHER_MONTHS = 36
 
 /** A stable empty list, so the map is not handed a new array on every render. */
 const EMPTY_AREAS: TopArea[] = []
@@ -58,8 +55,8 @@ function clearOfChrome(margin = 48) {
 type Workspace = 'map' | 'calendar'
 
 const WORKSPACES: { id: Workspace; label: string }[] = [
-  { id: 'map', label: 'Spatial map' },
-  { id: 'calendar', label: 'Activity calendar' },
+  { id: 'map', label: 'Map' },
+  { id: 'calendar', label: 'Calendar' },
 ]
 
 const MODES: { mode: Mode; label: string }[] = [
@@ -132,14 +129,6 @@ export default function App() {
     [fromMonth, toMonth, shift],
   )
   const topAreas = useSelectionQuery(range, (key, signal) => getTopAreas(key, signal))
-  // Daily weather over a 26-year range would be a huge request for little gain, so the
-  // strip covers at most the last three years of the chosen period and says so.
-  const weatherFor = useMemo(() => {
-    if (!selection || !months.length || shift) return null
-    const start = Math.max(monthRange[0], monthRange[1] - (WEATHER_MONTHS - 1))
-    return { ...selection, from: months[start] }
-  }, [selection, months, monthRange, shift])
-  const weather = useSelectionQuery(weatherFor, (sel, signal) => getWeather(sel, signal))
   const areas = topAreas.status === 'ready' ? topAreas.data.areas : EMPTY_AREAS
 
   /** Show the whole circle, whatever its size. */
@@ -265,6 +254,7 @@ export default function App() {
             encoding={layers.encoding}
             from={fromMonth}
             to={toMonth}
+            highlight={view.from !== null || view.to !== null}
             onPick={openMonth}
           />
         )}
@@ -313,7 +303,7 @@ export default function App() {
             )
             : (
               <p className="telemetry">
-                {data ? `${count(data.count)} detections · ${dayToDate(data.epoch, data.minDay)} → ${dataThrough ?? ''}` : 'Loading archive'}
+                {data ? `Satellite fire detections, ${dayToDate(data.epoch, data.minDay).slice(0, 4)} to ${dataThrough ? formatDate(dataThrough) : 'now'}` : 'Loading archive'}
               </p>
             )}
         </header>
@@ -336,13 +326,9 @@ export default function App() {
             selection={selection}
             placeName={placeName}
             panel={panel}
-            weather={weather}
             topAreas={topAreas}
-            about={about}
             hotspots={data}
-            dataThrough={dataThrough}
             onPick={choose}
-            onMethod={() => setMethod(true)}
             getCanvas={getCanvas}
           />}
         </div>

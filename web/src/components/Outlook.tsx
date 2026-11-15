@@ -1,9 +1,12 @@
+import { formatDate } from '../lib/days'
 import type { OutlookResponse } from '../types'
 
+const short = (date: string) => formatDate(date).replace(/ \d{4}$/, '')
+
 const WORDS: Record<'low' | 'usual' | 'high', string> = {
-  low: 'Below baseline',
-  usual: 'Near baseline',
-  high: 'Above baseline',
+  low: 'Lower than usual',
+  usual: 'About usual',
+  high: 'Higher than usual',
 }
 
 /**
@@ -28,7 +31,7 @@ export function Outlook({ data, brief = false }: {
           <span className="level-mark" aria-hidden="true"><i /><i /><i /></span>
           <span className="level-word">{WORDS[data.level]}</span>
           <span className="small muted">
-            {data.window.from} → {data.window.to} · computed {data.as_of}
+            {short(data.window.from)} – {short(data.window.to)}
           </span>
         </p>
       )}
@@ -38,8 +41,7 @@ export function Outlook({ data, brief = false }: {
             {data.reasons.map((reason) => <li key={reason}>{reason}</li>)}
           </ul>
           <p className="small muted">
-            Climatological likelihood for the area from past seasons and recent weather.
-            Not a detection and not a spread forecast.
+            A likelihood from past seasons and recent weather. Not a spread forecast.
           </p>
         </>
       )}

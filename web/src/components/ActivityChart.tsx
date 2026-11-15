@@ -1,4 +1,4 @@
-import { formatMonth, SWITCH_MONTH } from '../lib/days'
+import { formatMonth } from '../lib/days'
 import { count } from '../lib/format'
 import type { ActivityMonth } from '../types'
 
@@ -61,7 +61,7 @@ export function ActivityChart({ months }: { months: ActivityMonth[] }) {
   return (
     <figure className="activity-chart">
       <figcaption className="eyebrow">
-        Harmonized activity per {yearly ? 'year' : 'month'} · cell-days
+        By {yearly ? 'year' : 'month'}
       </figcaption>
       <svg
         viewBox={`0 -12 ${WIDTH} ${HEIGHT + 26}`}
@@ -93,15 +93,14 @@ export function ActivityChart({ months }: { months: ActivityMonth[] }) {
         })}
         <path d={usual} className="usual" />
         {switchAt !== null && <line x1={switchAt} y1={-4} x2={switchAt} y2={HEIGHT} className="break" />}
-        <text x={0} y={-3} className="axis">max {count(top)}</text>
-        <text x={0} y={HEIGHT + 11} className="axis">{columns[0].label}</text>
+                <text x={0} y={HEIGHT + 11} className="axis">{columns[0].label}</text>
         <text x={WIDTH} y={HEIGHT + 11} textAnchor="end" className="axis">{columns[columns.length - 1].label}</text>
       </svg>
       <ul className="chart-key">
         {anyMeasured && <li><i className="key-measured" />Measured</li>}
-        {anyEstimated && <li><i className="key-estimated" />Estimated, 80% interval</li>}
-        <li><i className="key-usual" />Baseline median</li>
-        {switchAt !== null && <li><i className="key-break" />{SWITCH_MONTH} MODIS → VIIRS</li>}
+        {anyEstimated && <li><i className="key-estimated" />Estimated (older sensor)</li>}
+        <li><i className="key-usual" />Usual</li>
+        {switchAt !== null && <li><i className="key-break" />Sensor change, 2012</li>}
       </ul>
     </figure>
   )

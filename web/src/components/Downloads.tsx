@@ -118,33 +118,21 @@ export function Downloads({ selection, hotspots, getCanvas }: {
   return (
     <section className="downloads" aria-label="Export">
       <h3>Export</h3>
-      <ul className="export-list">
-        <li>
-          {USE_MOCKS
-            ? <button type="button" disabled={busy !== null} onClick={() => write('activity_monthly', 'csv', async () => text('text/csv', await mockMonthlyCsv(selection)))}>CSV</button>
-            : <a className="download-link" href={monthlyCsvUrl(selection)} download>CSV</a>}
-          <span><b>Harmonized monthly series</b>activity, 80% interval, estimated flag, baseline median</span>
-        </li>
-        <li>
-          {USE_MOCKS
-            ? <button type="button" disabled={busy !== null || !hotspots} onClick={() => write('detections', 'csv', () => hotspots && text('text/csv', hotspotsCsv(hotspots, selection)))}>CSV</button>
-            : <a className="download-link" href={hotspotsCsvUrl(selection)} download>CSV</a>}
-          <span><b>Detections</b>latitude, longitude, acq_date, frp, sensor</span>
-        </li>
-        <li>
-          <button
-            type="button" disabled={busy !== null || !hotspots}
-            onClick={() => write('detections', 'geojson', () => hotspots && text('application/geo+json', geoJson(hotspots, selection)))}
-          >
-            GeoJSON
-          </button>
-          <span><b>Detections</b>points, WGS 84, RFC 7946</span>
-        </li>
-        <li>
-          <button type="button" disabled={busy !== null || !canvas} onClick={() => write('map', 'png', () => canvas && mapImage(canvas, selection))}>PNG</button>
-          <span><b>Map image</b>current view, with caption</span>
-        </li>
-      </ul>
+      <div className="export-row">
+        {USE_MOCKS
+          ? <button type="button" disabled={busy !== null} onClick={() => write('activity_monthly', 'csv', async () => text('text/csv', await mockMonthlyCsv(selection)))}>Monthly CSV</button>
+          : <a className="download-link" href={monthlyCsvUrl(selection)} download>Monthly CSV</a>}
+        {USE_MOCKS
+          ? <button type="button" disabled={busy !== null || !hotspots} onClick={() => write('detections', 'csv', () => hotspots && text('text/csv', hotspotsCsv(hotspots, selection)))}>Detections CSV</button>
+          : <a className="download-link" href={hotspotsCsvUrl(selection)} download>Detections CSV</a>}
+        <button
+          type="button" disabled={busy !== null || !hotspots}
+          onClick={() => write('detections', 'geojson', () => hotspots && text('application/geo+json', geoJson(hotspots, selection)))}
+        >
+          GeoJSON
+        </button>
+        <button type="button" disabled={busy !== null || !canvas} onClick={() => write('map', 'png', () => canvas && mapImage(canvas, selection))}>Map image</button>
+      </div>
     </section>
   )
 }
