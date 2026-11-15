@@ -17,17 +17,23 @@ export interface View {
   from: string | null
   /** Last month, YYYY-MM. Null means the end of the record, wherever that is by then. */
   to: string | null
-  /** "record" is the full historical page; "shift" re-frames it for someone on duty. */
+  /** "record" is the full historical page; "shift" is the situation board for someone on duty. */
   mode: Mode
+  /**
+   * The day the situation board is read as of, YYYY-MM-DD. Null means the last day of the
+   * record, wherever that is by then. Only the operational view uses it.
+   */
+  on: string | null
 }
 
 export const RADII_KM = [50, 100, 200]
 
 export const DEFAULT_VIEW: View = {
-  lat: null, lon: null, radius_km: 100, from: null, to: null, mode: 'record',
+  lat: null, lon: null, radius_km: 100, from: null, to: null, mode: 'record', on: null,
 }
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/
+const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
 
 function numberIn(text: string | null, limit: number): number | null {
   if (text === null || text.trim() === '') return null
@@ -52,6 +58,7 @@ export function parseView(search: string): View {
     from,
     to,
     mode: q.get('mode') === 'shift' ? 'shift' : 'record',
+    on: DAY.test(q.get('on') ?? '') ? q.get('on') : null,
   }
 }
 
@@ -66,6 +73,7 @@ export function serializeView(view: View): string {
   if (view.from) q.set('from', view.from)
   if (view.to) q.set('to', view.to)
   if (view.mode !== DEFAULT_VIEW.mode) q.set('mode', view.mode)
+  if (view.on) q.set('on', view.on)
   return q.toString()
 }
 

@@ -12,9 +12,8 @@ const WORDS: Record<'low' | 'usual' | 'high', string> = {
  * page has to say so: nothing is drawn on the map for it. The level is words first; the
  * mark beside it only repeats them.
  */
-export function Outlook({ data, raised = false, brief = false }: {
+export function Outlook({ data, brief = false }: {
   data: OutlookResponse
-  raised?: boolean
   /** Only the level, for the small card. */
   brief?: boolean
 }) {
@@ -22,7 +21,7 @@ export function Outlook({ data, raised = false, brief = false }: {
   if (brief && !data.level) return null
 
   return (
-    <section className={`outlook ${raised ? 'is-raised' : ''}`}>
+    <section className="outlook">
       <h3>{data.label}</h3>
       {data.level && (
         <p className={`level level-${data.level}`}>

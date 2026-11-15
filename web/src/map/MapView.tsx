@@ -17,7 +17,8 @@ import { applyBase, BASE_STYLE, dressStyle, showGraticule, showLabels, UNDER_LAB
 import type { BaseMap } from './baseMap'
 import { FRP_CLASS_COLOURS, frpClass } from './frpCells'
 import type { FrpCell } from './frpCells'
-import { FIELD_GONE_ZOOM } from './field'
+import { AGE_COLOURS, ageClass } from '../lib/situation'
+import { FIELD_GONE_ZOOM, sliceByDay } from './field'
 
 config.WORKER_URL = workerUrl
 
@@ -35,6 +36,11 @@ const ADDITIVE = {
 } as const
 
 const ACCENT: [number, number, number] = [108, 192, 255]
+
+/** The situation board colours a detection by its age; the older it is, the more it recedes. */
+const AGE_ALPHA = [255, 235, 190]
+const AGE_RADIUS_PX = [3.4, 2.9, 2.4]
+const AGE_WORDS = ['chosen day', '1–2 days before', '3–6 days before']
 
 export interface MapViewProps {
   hotspots: HotspotArrays | null
@@ -54,6 +60,12 @@ export interface MapViewProps {
   base: BaseMap
   graticule: boolean
   labels: boolean
+  /**
+   * The situation board: only the days from `fromDay` to `asOfDay` are drawn, each
+   * detection coloured by its age on the as-of day instead of by its power. Null draws
+   * the record as usual.
+   */
+  recency: { fromDay: number; asOfDay: number } | null
   selection: Selection | null
   topAreas: TopArea[]
   onMapClick: (lat: number, lon: number) => void
@@ -61,12 +73,14 @@ export interface MapViewProps {
 }
 
 export function MapView({
-  hotspots, dayRange, softRange, cells, flare, anomaly, base, graticule, labels, selection, topAreas, onMapClick, onMapReady,
+  hotspots, dayRange, softRange, cells, flare, anomaly, base, graticule, labels, recency, selection, topAreas, onMapClick, onMapReady,
 }: MapViewProps) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const overlayRef = useRef<MapLibreOverlay | null>(null)
   const hotspotsRef = useRef<HotspotArrays | null>(null)
+  /** Where the situation board's stretch of the record starts and its as-of day, to read a picked dot back. */
+  const recentAt = useRef({ start: 0, asOfDay: 0 })
   const clickRef = useRef(onMapClick)
 
   const [zoom, setZoom] = useState(4)
@@ -105,6 +119,38 @@ export function MapView({
     ? { length: binary.length, attributes: { getPosition: binary.attributes.getPosition, getFilterValue: binary.attributes.getFilterValue } }
     : null), [binary])
 
+  // The situation board draws a few days of the record, so it gets buffers of its own:
+  // the same positions, colours by age. They arrive in day order, so the newest is on top.
+  const fromDay = recency?.fromDay
+  const asOfDay = recency?.asOfDay
+  const recent = useMemo(() => {
+    if (!hotspots || fromDay === undefined || asOfDay === undefined) return null
+    const slice = sliceByDay(hotspots.day, fromDay, asOfDay)
+    if (!slice) return null
+    const [start, end] = slice
+    const length = end - start
+    const colours = new Uint8Array(length * 4)
+    const radius = new Float32Array(length)
+    for (let k = 0; k < length; k++) {
+      const age = ageClass(asOfDay - Math.round(hotspots.day[start + k]))
+      colours.set(AGE_COLOURS[age], k * 4)
+      colours[k * 4 + 3] = AGE_ALPHA[age]
+      radius[k] = AGE_RADIUS_PX[age]
+    }
+    return {
+      start,
+      data: {
+        length,
+        attributes: {
+          getPosition: { value: hotspots.positions.subarray(start * 2, end * 2), size: 2 },
+          getFillColor: { value: colours, size: 4, normalized: true },
+          getRadius: { value: radius, size: 1 },
+        },
+      },
+    }
+  }, [hotspots, fromDay, asOfDay])
+  recentAt.current = { start: recent?.start ?? 0, asOfDay: asOfDay ?? 0 }
+
   useEffect(() => {
     if (!container.current || mapRef.current) return
     const map = new MapLibreMap({
@@ -131,7 +177,7 @@ export function MapView({
     const overlay = new MapLibreOverlay({
       interleaved: true,
       layers: [],
-      getTooltip: ({ index, layer, object }) => {
+      getTooltip: ({ index: picked, layer, object }) => {
         const h = hotspotsRef.current
         const row = (name: string, value: string) => `<tr><th>${name}</th><td>${value}</td></tr>`
         const style = { background: 'none', color: 'inherit', padding: '0', font: 'inherit' }
@@ -160,7 +206,9 @@ export function MapView({
             style,
           }
         }
-        if (!h || index < 0 || !layer?.id.startsWith('hotspots')) return null
+        if (!h || picked < 0 || !layer?.id.startsWith('hotspots')) return null
+        const board = layer.id === 'hotspots-recent'
+        const index = board ? picked + recentAt.current.start : picked
         const older = h.sensor[index] === 0
         const lat = h.positions[index * 2 + 1]
         const lon = h.positions[index * 2]
@@ -170,6 +218,7 @@ export function MapView({
             + row('FRP', `${h.frp[index].toFixed(1)} MW`)
             + row('Position', `${Math.abs(lat).toFixed(4)}°${lat < 0 ? 'S' : 'N'} ${Math.abs(lon).toFixed(4)}°${lon < 0 ? 'W' : 'E'}`)
             + row('Sensor', older ? 'MODIS C6.1 · 1 km' : 'VIIRS C2 · 375 m')
+            + (board ? row('Age', AGE_WORDS[ageClass(recentAt.current.asOfDay - Math.round(h.day[index]))]) : '')
             + '</table>',
           // The look is in the stylesheet, with everything else.
           style,
@@ -213,7 +262,23 @@ export function MapView({
     // Below this zoom a detection is smaller than a pixel; the grid cell is the honest unit.
     const gridded = cells !== null && zoom < FIELD_GONE_ZOOM
     const layers = []
-    if (gridded && !anomaly) {
+    if (recent) {
+      layers.push(new ScatterplotLayer({
+        id: 'hotspots-recent',
+        beforeId: UNDER_LABELS,
+        data: recent.data,
+        radiusUnits: 'pixels',
+        // On the board a detection has to be found from across the region, so it never
+        // shrinks to a grain the way the record's dots do.
+        radiusScale: Math.min(1.5, Math.max(0.75, 0.75 + (zoom - 4) * 0.15)),
+        radiusMinPixels: 2,
+        stroked: true,
+        getLineColor: [6, 9, 11, 255],
+        lineWidthUnits: 'pixels',
+        getLineWidth: zoom >= 6 ? 0.8 : 0.4,
+        pickable: true,
+      }))
+    } else if (gridded && !anomaly) {
       layers.push(new PolygonLayer<FrpCell>({
         id: 'frp-cells',
         ...({ beforeId: UNDER_LABELS } as object),
@@ -228,7 +293,9 @@ export function MapView({
         pickable: true,
       }))
     }
-    if (anomaly && plain) {
+    if (recent) {
+      // The record's own encodings are put away while the board is up.
+    } else if (anomaly && plain) {
       layers.push(new PolygonLayer<AnomalyCell>({
         id: 'anomaly-cells',
         // Deck's own layer types do not list the MapLibre slot a layer is drawn in.
@@ -285,7 +352,7 @@ export function MapView({
         filterSoftRange: softRange,
       }))
     }
-    if (binary && flare && !anomaly) {
+    if (binary && flare && !anomaly && !recent) {
       const [oldest, newest] = flare
       layers.push(new ScatterplotLayer({
         id: 'hotspots-fresh',
@@ -376,7 +443,7 @@ export function MapView({
     }
 
     overlay.setProps({ layers })
-  }, [ready, binary, cells, zoom, dayRange, softRange, flare, anomaly, plain, selection, topAreas])
+  }, [ready, binary, cells, zoom, dayRange, softRange, flare, anomaly, plain, recent, selection, topAreas])
 
   return <div ref={container} className="map" role="application" aria-label="Map of fire detections in Quebec" />
 }

@@ -475,7 +475,6 @@ a { color: var(--accent); }
 .finding .headline > b { font: 500 30px/1 var(--mono); letter-spacing: -0.04em; color: var(--ink); font-variant-numeric: tabular-nums; }
 .finding .headline-rank { margin-left: auto; font: 400 11.5px/1 var(--mono); }
 .finding .headline-rank b { font-weight: 500; color: var(--ink); }
-.finding.is-demoted .headline > b { font-size: 22px; }
 
 /* What kind of number follows. The word carries it; the box only repeats it. */
 .kind {
@@ -513,26 +512,6 @@ a { color: var(--accent); }
 
 .provenance .formula { margin: 0; font-size: 12.5px; padding: 6px 10px; }
 
-/* --- the on-shift view --------------------------------------------------- */
-
-/* Calm on purpose: no red, nothing flashing. It states a limit, not an emergency. */
-.record-banner {
-  padding: 9px 11px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  background: var(--bg-2);
-  border: 1px solid var(--rule-2);
-  border-left: 2px solid var(--warn);
-  font-size: 12px;
-  line-height: 1.45;
-  color: var(--ink-2);
-}
-.record-banner strong { font: 600 10.5px/1.5 var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: var(--warn); }
-
-.presets { display: flex; flex-direction: column; gap: 8px; }
-.presets .seg { align-self: flex-start; flex-wrap: wrap; }
-
 /* --- outlook ------------------------------------------------------------- */
 
 .level { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: center; }
@@ -550,8 +529,6 @@ a { color: var(--accent); }
 
 .reasons { margin: 0; padding-left: 18px; }
 .reasons li { margin-bottom: 4px; line-height: 1.45; }
-
-.outlook.is-raised .level-word { font-size: 17px; }
 
 /* --- yearly chart -------------------------------------------------------- */
 
@@ -1135,8 +1112,7 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
 .figures { border: 0; gap: 8px; }
 .figures > div, .figures > div:nth-child(odd), .figures > div:nth-child(n + 3) { border: 0; padding: 10px 12px 11px; background: var(--fill); border-radius: 12px; }
 .figures dd { font: 600 17px/1.25 var(--sans); letter-spacing: -0.01em; }
-.note-box, .warn-box, .record-banner, .provenance .formula, .formula { border-radius: var(--r-s); background: var(--fill); }
-.record-banner { border: 0; border-left: 2px solid var(--warn); }
+.note-box, .warn-box, .provenance .formula, .formula { border-radius: var(--r-s); background: var(--fill); }
 .kind { border-radius: 5px; }
 .export-list button, .export-list .download-link { border-radius: 7px; }
 
@@ -1248,7 +1224,6 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
 /* The harmonized ratio: a figure, a scale to read it on, and its rank. */
 .finding .headline { padding: 0; background: none; border-radius: 0; gap: 10px; align-items: center; font-size: 12.5px; line-height: 1.35; color: var(--ink-2); }
 .finding .headline > b { flex: none; font: 700 44px/0.95 var(--sans); letter-spacing: -0.04em; color: var(--ink); }
-.finding.is-demoted .headline > b { font-size: 30px; }
 
 .ratio-scale { margin-top: 2px; }
 .ratio-track {
@@ -1310,3 +1285,108 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
 .area-list .where-name { font: 500 13px/1.3 var(--sans); color: var(--ink); }
 .area-list .where-coords { font: 400 11px/1.3 var(--mono); color: var(--ink-3); }
 .place-sub { font-family: var(--sans); }
+
+/* --- experimental spread forecast: words and three figures, nothing on the map --- */
+.forecast-lead { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--ink-2); }
+.forecast-days { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.forecast-days > div { padding: 10px 12px 11px; background: var(--fill); border-radius: 12px; border-left: 2px solid transparent; }
+.forecast-days > div.is-warning { border-left-color: var(--warn); }
+.forecast-days dt { font-size: 11.5px; line-height: 1.35; color: var(--ink-2); }
+.forecast-days dt span { display: block; color: var(--ink-3); }
+.forecast-days dd { margin: 4px 0 0; font: 600 20px/1.1 var(--sans); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.forecast p { margin: 0; }
+
+/* --- the operational view ---------------------------------------------------
+
+   The same sheets as the record view, read on one chosen day. The inspector holds the
+   week's detections for the area; the time line's place is taken by a day control. The
+   only new colour is on the data: a detection is coloured by how recent it is. */
+
+.sheet-foot .copy-link { margin-right: auto; }
+.ops-status { margin: 0; font-size: 12px; line-height: 1.4; color: var(--ink-3); }
+.ops-status.is-past { color: var(--warn); }
+
+.ops-area { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; margin-top: 8px; }
+.ops-area .seg { flex: none; }
+.ops-area button.link { align-self: center; white-space: nowrap; }
+
+/* Three counts on tiles: the chosen day, three days, the week. */
+.ops-figures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 0; }
+.ops-figures > div { min-width: 0; padding: 10px 12px 11px; background: var(--fill); border-radius: 12px; }
+.ops-figures dt { font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+.ops-figures dd { margin: 2px 0 0; font: 700 24px/1.15 var(--sans); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.ops-figures dd.sub { margin-top: 1px; font: 400 11px/1.4 var(--mono); letter-spacing: 0; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.ops-daily { margin: 4px 0 0; display: flex; flex-direction: column; gap: 5px; }
+.ops-daily-bars { display: flex; align-items: flex-end; gap: 3px; height: 54px; }
+.ops-daily-bars i { flex: 1 1 0; border-radius: 3px 3px 1px 1px; background: rgba(255, 255, 255, 0.3); }
+.ops-daily-bars i.is-zero { height: 2px; border-radius: 1px; background: rgba(255, 255, 255, 0.14); }
+.ops-daily figcaption { display: flex; justify-content: space-between; font-size: 11px; line-height: 1.3; color: var(--ink-3); }
+
+.ops-ratio { display: flex; align-items: baseline; gap: 10px; font-size: 12.5px; color: var(--ink-2); }
+.ops-ratio b { font: 700 34px/1 var(--sans); letter-spacing: -0.03em; color: var(--ink); white-space: nowrap; }
+
+.ops-weather { width: 100%; border-collapse: collapse; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.ops-weather th, .ops-weather td { padding: 6px 0 6px 4px; text-align: right; font-weight: 400; }
+.ops-weather thead th { font-size: 11px; color: var(--ink-3); }
+.ops-weather tbody tr { border-top: 1px solid var(--rule); }
+.ops-weather tbody th { padding-left: 0; text-align: left; color: var(--ink-2); white-space: nowrap; }
+.ops-weather td { color: var(--ink-2); }
+.ops-weather td:last-child, .ops-weather thead th:last-child { color: var(--ink); font-weight: 600; }
+
+.ops-dot { display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; }
+.area-list .where-coords:has(.ops-dot) { font-family: var(--sans); }
+
+/* The key. */
+.opskey ul { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
+.opskey li { display: flex; align-items: center; gap: 8px; font-size: 12px; line-height: 1.3; color: var(--ink-2); }
+.opskey i { display: block; flex: none; width: 9px; height: 9px; border-radius: 50%; }
+.opskey i.opskey-cell { border-radius: 2px; border: 1.5px solid #f6f3ee; }
+
+/* The day control, where the time line sits in the record view. */
+.daydock .td-main { gap: 8px 14px; }
+.day-step { flex: none; display: flex; gap: 6px; }
+.day-step .play { font-size: 20px; line-height: 1; padding-bottom: 2px; }
+.day-readout { width: 236px; }
+.day-readout label { position: relative; align-self: flex-start; cursor: pointer; }
+.day-readout label strong { display: block; padding-right: 22px; }
+.day-readout label:hover strong { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
+/* The native picker, laid over the date so that clicking the date opens it. */
+.day-readout input {
+  position: absolute;
+  inset: -4px 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: transparent;
+  color-scheme: dark;
+  cursor: pointer;
+}
+.day-readout input::-webkit-datetime-edit { visibility: hidden; }
+.day-readout input::-webkit-calendar-picker-indicator { position: absolute; right: 0; top: 50%; transform: translateY(-50%); opacity: 0.7; cursor: pointer; }
+.day-readout input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+
+.day-track { flex: 1 1 260px; min-width: 0; padding: 4px 4px 0; }
+.day-plot { position: relative; height: 40px; border-bottom: 1px solid var(--ink-3); cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none; }
+.day-plot:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+.day-bars { position: absolute; inset: 0; width: 100%; height: 100%; }
+.day-bar { fill: rgba(255, 255, 255, 0.28); }
+.day-bar.is-window { fill: #f7a11b; }
+.day-plot .track-band { min-width: 4px; }
+.day-head { position: absolute; top: -5px; bottom: -4px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--accent); pointer-events: none; }
+.day-months { position: relative; height: 16px; margin-top: 3px; font: 400 11px/14px var(--mono); color: var(--ink-2); }
+.day-months span { position: absolute; padding-left: 3px; border-left: 1px solid var(--ink-3); }
+
+.day-year { flex: none; align-items: center; }
+.day-year span { padding: 0 6px; font: 600 13px/1 var(--sans); font-variant-numeric: tabular-nums; }
+.day-year button { padding: 5px 9px; font-size: 15px; line-height: 1; }
+.daydock .td-main > button { flex: none; height: 32px; }
+
+@media (max-width: 1280px) {
+  .day-readout { width: 200px; }
+}
+@media (max-width: 880px) {
+  .day-track { order: 5; flex-basis: 100%; }
+  .day-readout { width: auto; margin-right: auto; }
+}

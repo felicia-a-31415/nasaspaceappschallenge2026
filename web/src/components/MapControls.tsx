@@ -23,6 +23,8 @@ export interface MapControlsProps {
   radii: number[]
   radiusKm: number
   onRadius: (km: number) => void
+  /** The situation board is up: only the controls that still apply to it are offered. */
+  board?: boolean
 }
 
 const ENCODINGS: { id: Encoding; label: string; title: string }[] = [
@@ -42,8 +44,14 @@ const OVERLAYS: { key: 'field' | 'flare' | 'graticule' | 'labels' | 'squares'; l
   { key: 'labels', label: 'Place names' },
 ]
 
+const BOARD_OVERLAYS: typeof OVERLAYS = [
+  { key: 'squares', label: 'Most active cells', title: 'The 0.1° cells with the highest summed FRP in the 7 days to the as-of day.' },
+  { key: 'graticule', label: 'Graticule' },
+  { key: 'labels', label: 'Place names' },
+]
+
 /** Layer and parameter controls: base map, colour encoding, overlays, analysis radius. */
-export function MapControls({ layers, onLayers, radii, radiusKm, onRadius }: MapControlsProps) {
+export function MapControls({ layers, onLayers, radii, radiusKm, onRadius, board = false }: MapControlsProps) {
   return (
     <div className="mapctl" aria-label="Layers and parameters">
       <div className="mapctl-group">
@@ -70,7 +78,7 @@ export function MapControls({ layers, onLayers, radii, radiusKm, onRadius }: Map
 
       <div className="mapctl-group">
         <p className="eyebrow">Overlays</p>
-        {OVERLAYS.map(({ key, label, title }) => (
+        {(board ? BOARD_OVERLAYS : OVERLAYS).map(({ key, label, title }) => (
           <label key={key} className="check" title={title}>
             <input type="checkbox" checked={layers[key]} onChange={(e) => onLayers({ [key]: e.target.checked })} />
             <span>{label}</span>
@@ -78,7 +86,7 @@ export function MapControls({ layers, onLayers, radii, radiusKm, onRadius }: Map
         ))}
       </div>
 
-      <div className="mapctl-group">
+      {!board && <div className="mapctl-group">
         <p className="eyebrow">Analysis radius</p>
         <div className="seg seg-fill" role="group" aria-label="Radius of the area of interest">
           {radii.map((km) => (
@@ -87,7 +95,7 @@ export function MapControls({ layers, onLayers, radii, radiusKm, onRadius }: Map
             </button>
           ))}
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

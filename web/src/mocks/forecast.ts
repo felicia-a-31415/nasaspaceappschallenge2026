@@ -1,8 +1,8 @@
-// The forecast's mock twin. There is no server logic to mirror yet, so it says so.
+// The forecast's mock twin. The spread forecast is a trained model that lives on the
+// server; the mocks hold no copy of it and invent no chances, so they say so.
 
-import { NO_FORECAST } from '../forecast'
 import type { Forecast, ForecastRequest } from '../forecast'
 
-export async function forecast(_view: ForecastRequest): Promise<Forecast> {
-  return NO_FORECAST
+export async function forecast(_view: ForecastRequest, _day: string): Promise<Forecast> {
+  return { available: false, reason: 'The mock data carries no spread model. Run against the real server.' }
 }
