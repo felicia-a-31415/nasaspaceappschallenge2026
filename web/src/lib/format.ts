@@ -7,9 +7,7 @@ export function count(value: number): string {
 
 /** Intensities run from fractions of a megawatt to millions, so the unit moves. */
 export function megawatts(value: number | null): string {
-  if (value === null || !Number.isFinite(value)) return 'no reading'
-  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)} million MW`
-  if (value >= 10_000) return `${NUMBER.format(Math.round(value / 1000))} thousand MW`
+  if (value === null || !Number.isFinite(value)) return 'n/a'
   if (value >= 100) return `${NUMBER.format(Math.round(value))} MW`
   return `${value.toFixed(1)} MW`
 }
@@ -22,6 +20,11 @@ export function plural(value: number, word: string): string {
 /** "49.9, -74.4", the way the search box accepts it back. */
 export function coordinates(lat: number, lon: number): string {
   return `${lat.toFixed(4)}, ${lon.toFixed(4)}`
+}
+
+/** "51.3178°N 71.3197°W": a position the way a chart writes it. */
+export function position(lat: number, lon: number): string {
+  return `${Math.abs(lat).toFixed(4)}°${lat < 0 ? 'S' : 'N'} ${Math.abs(lon).toFixed(4)}°${lon < 0 ? 'W' : 'E'}`
 }
 
 /** 1.0 reads as "the same as", 2.4 as "2.4 times". */

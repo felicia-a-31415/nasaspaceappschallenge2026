@@ -129,9 +129,7 @@ export function SearchBox({ onFound }: SearchBoxProps) {
   return (
     <div className={`searchbox ${showList ? 'is-open' : ''}`} ref={box}>
       <form onSubmit={submit} role="search">
-        <span className="mark" aria-hidden="true" />
-        <h1>Quebec fire record</h1>
-        <label className="visually-hidden" htmlFor="place">Place name or coordinates</label>
+                <label className="visually-hidden" htmlFor="place">Place name or coordinates</label>
         <input
           id="place"
           type="text"
@@ -141,7 +139,7 @@ export function SearchBox({ onFound }: SearchBoxProps) {
           aria-autocomplete="list"
           aria-activedescendant={showList ? `${listId}-${current}` : undefined}
           value={query}
-          placeholder="Search a place or coordinates"
+          placeholder="Place, or lat, lon"
           autoComplete="off"
           spellCheck={false}
           onChange={(e) => { setQuery(e.target.value); setState('idle'); setActive(0); setOpen(true) }}

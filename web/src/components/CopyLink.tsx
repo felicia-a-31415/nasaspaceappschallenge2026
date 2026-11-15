@@ -34,8 +34,8 @@ export function CopyLink({ view }: { view: View }) {
 
   return (
     <div className="copy-link">
-      <button type="button" className="quiet" onClick={copy} title="Copy a link to this place, circle, period and view">
-        {state === 'copied' ? 'Link copied' : 'Copy link'}
+      <button type="button" onClick={copy} title="Copy a link to this place, circle, period and view">
+        {state === 'copied' ? 'Copied' : 'Permalink'}
       </button>
       <span className="visually-hidden" role="status">{state === 'copied' ? 'Link copied' : ''}</span>
       {state === 'manual' && (

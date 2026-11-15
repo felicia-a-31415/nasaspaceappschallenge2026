@@ -1,4 +1,4 @@
-import { count, plural } from '../lib/format'
+import { count } from '../lib/format'
 import type { StatsYear } from '../types'
 
 const WIDTH = 300
@@ -15,8 +15,8 @@ export function YearChart({ years }: { years: StatsYear[] }) {
   const older = years.filter((y) => y.sensor === 'MODIS')
   const newer = years.filter((y) => y.sensor === 'VIIRS')
   const groups = [
-    { label: 'Older camera', rows: older },
-    { label: 'Newer camera', rows: newer },
+    { label: 'MODIS', rows: older },
+    { label: 'VIIRS', rows: newer },
   ].filter((g) => g.rows.length > 0)
   if (!groups.length) return null
 
@@ -26,7 +26,7 @@ export function YearChart({ years }: { years: StatsYear[] }) {
 
   return (
     <figure className="year-chart">
-      <figcaption className="eyebrow">Fire detections each year</figcaption>
+      <figcaption className="eyebrow">Detections per year · raw, per sensor</figcaption>
       <svg viewBox={`0 -14 ${WIDTH} ${HEIGHT + 28}`} role="img" aria-label={label(groups)}>
         {groups.map((group, index) => {
           const width = (group.rows.length / slots) * spare
@@ -47,9 +47,9 @@ export function YearChart({ years }: { years: StatsYear[] }) {
                     y={HEIGHT - height}
                     width={bar}
                     height={Math.max(row.detections > 0 ? 1 : 0, height)}
-                    className={group.label === 'Older camera' ? 'bar-older' : 'bar-newer'}
+                    className={group.label === 'MODIS' ? 'bar-older' : 'bar-newer'}
                   >
-                    <title>{`${row.year}: ${plural(row.detections, 'detection')}`}</title>
+                    <title>{`${row.year}: ${count(row.detections)} detections`}</title>
                   </rect>
                 )
               })}
@@ -60,7 +60,7 @@ export function YearChart({ years }: { years: StatsYear[] }) {
                 </text>
               )}
               <text x={0} y={-4} className="axis camera">{group.label}</text>
-              <text x={width} y={-4} textAnchor="end" className="axis">up to {count(top)}</text>
+              <text x={width} y={-4} textAnchor="end" className="axis">max {count(top)}</text>
               {index > 0 && <line x1={-GAP / 2} y1={0} x2={-GAP / 2} y2={HEIGHT + 2} className="break" />}
             </g>
           )
@@ -68,8 +68,8 @@ export function YearChart({ years }: { years: StatsYear[] }) {
       </svg>
       {groups.length > 1 && (
         <p className="small muted chart-note">
-          Two cameras, two scales: the older camera saw far fewer small fires, so the sides
-          cannot be compared. For "more or less than usual", read the sentence above.
+          Independent y-scales. Raw counts are sensor-specific and not comparable across
+          {' '}2012-02; use harmonized activity for that.
         </p>
       )}
     </figure>

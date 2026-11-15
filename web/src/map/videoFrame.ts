@@ -3,6 +3,7 @@
 // 2012 notice and the credits - is painted into the frame here.
 
 import { formatMonth, SWITCH_MONTH } from '../lib/days'
+import { BASE_CREDIT } from './baseMap'
 import { cssColour, intensityFraction, LEGEND_TICKS, rampColour, TOP_INTENSITY_MW } from './colourRamp'
 
 export interface FrameState {
@@ -49,11 +50,10 @@ export function drawFrame(ctx: CanvasRenderingContext2D, width: number, height: 
   ctx.textBaseline = 'alphabetic'
   ctx.fillStyle = INK
   ctx.font = `650 ${34 * unit}px "IBM Plex Sans", system-ui, sans-serif`
-  ctx.fillText('Quebec fire record', pad, pad + 34 * unit)
+  ctx.fillText('MODIS + VIIRS active fire record · Quebec', pad, pad + 34 * unit)
   ctx.fillStyle = DIM
   ctx.font = `${20 * unit}px "IBM Plex Sans", system-ui, sans-serif`
-  ctx.fillText('Fire detections seen by satellite, played through time', pad, pad + 64 * unit)
-  ctx.fillText('Detections stay on the map from the first date on the time line', pad, pad + 90 * unit)
+  ctx.fillText('NASA FIRMS thermal anomalies, cumulative from start date', pad, pad + 64 * unit)
 
   // The month, top right, large.
   ctx.textAlign = 'right'
@@ -70,7 +70,7 @@ export function drawFrame(ctx: CanvasRenderingContext2D, width: number, height: 
   ctx.fillStyle = DIM
   ctx.font = `${17 * unit}px "IBM Plex Sans", system-ui, sans-serif`
   ctx.fillText('Fire data: NASA FIRMS (MODIS, VIIRS)', width - pad, height - pad - 118 * unit)
-  ctx.fillText('Base map © OpenStreetMap contributors, © CARTO', width - pad, height - pad - 94 * unit)
+  ctx.fillText(BASE_CREDIT, width - pad, height - pad - 94 * unit)
   ctx.textAlign = 'left'
 }
 
@@ -81,7 +81,7 @@ function drawLegend(ctx: CanvasRenderingContext2D, x: number, y: number, unit: n
 
   ctx.fillStyle = INK
   ctx.font = `600 ${18 * unit}px "IBM Plex Sans", system-ui, sans-serif`
-  ctx.fillText('Fire intensity of each detection, megawatts', x, y - 12 * unit)
+  ctx.fillText('Fire radiative power per detection, MW', x, y - 12 * unit)
 
   const ramp = ctx.createLinearGradient(x, 0, x + w, 0)
   for (let i = 0; i <= 10; i++) ramp.addColorStop(i / 10, cssColour(rampColour(i / 10)))
@@ -116,8 +116,8 @@ function drawTimeline(
   ctx.fillStyle = '#ffd27d'
   ctx.font = `${19 * unit}px "IBM Plex Sans", system-ui, sans-serif`
   ctx.fillText(
-    'From February 2012 a sharper satellite camera took over and sees many more small fires. '
-    + 'More dots after 2012 does not by itself mean more fire.',
+    'Sensor transition 2012-02: MODIS (1 km) to VIIRS (375 m). '
+    + 'Raw detection counts are not comparable across this date.',
     left, y - 22 * unit,
   )
 

@@ -1,8 +1,7 @@
-import { HeatmapLayer } from '@deck.gl/aggregation-layers'
 import { DataFilterExtension } from '@deck.gl/extensions'
 import { PolygonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import { MapLibreOverlay } from '@deck.gl/maplibre'
-import { AttributionControl, config, Map as MapLibreMap, MapMouseEvent, NavigationControl, ScaleControl } from 'maplibre-gl'
+import { config, Map as MapLibreMap, MapMouseEvent, NavigationControl } from 'maplibre-gl'
 // MapLibre parses its tiles in a web worker whose URL it builds at runtime, which no
 // bundler can follow. Pointing it at the worker as an asset makes both the dev server
 // and the production build serve the right file.
@@ -10,22 +9,32 @@ import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
-import { formatDate } from '../lib/days'
 import { circlePolygon, CELL_DEG } from '../lib/geo'
 import type { HotspotArrays, Selection, TopArea } from '../types'
-import { rampColour } from './colourRamp'
-import { fieldShare, sliceByDay } from './field'
+import { Z_COLOURS, Z_NORMAL_CLASS, zClass } from './anomaly'
+import type { AnomalyCell } from './anomaly'
+import { applyBase, BASE_STYLE, dressStyle, showGraticule, showLabels, UNDER_LABELS } from './baseMap'
+import type { BaseMap } from './baseMap'
+import { FRP_CLASS_COLOURS, frpClass } from './frpCells'
+import type { FrpCell } from './frpCells'
+import { FIELD_GONE_ZOOM } from './field'
 
 config.WORKER_URL = workerUrl
-
-/** A free dark style that needs no key. Its attribution travels with the style. */
-const BASE_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
 
 /** Filtering by day happens on the graphics card, so the slider never rebuilds data. */
 const DAY_FILTER = new DataFilterExtension({ filterSize: 1 })
 
-/** The field uses the same ramp as the dots, so one legend covers both. */
-const FIELD_COLOURS = Array.from({ length: 8 }, (_, i) => rampColour(i / 7))
+/** Light added to light, so a fire that has just appeared flares before it settles. */
+const ADDITIVE = {
+  blend: true,
+  blendColorOperation: 'add',
+  blendColorSrcFactor: 'src-alpha',
+  blendColorDstFactor: 'one',
+  blendAlphaSrcFactor: 'one',
+  blendAlphaDstFactor: 'one',
+} as const
+
+const ACCENT: [number, number, number] = [108, 192, 255]
 
 export interface MapViewProps {
   hotspots: HotspotArrays | null
@@ -33,18 +42,27 @@ export interface MapViewProps {
   dayRange: [number, number]
   /** Inside this the dots are drawn in full; between it and `dayRange` they fade out. */
   softRange: [number, number] | null
+  /** ΣFRP per 0.1° cell for the period, drawn as classed cells when zoomed out. Null draws markers only. */
+  cells: FrpCell[] | null
   /**
-   * Draw fire intensity as a glow when zoomed out. Only ever asked for while the time
-   * line is at rest: the dots are the layer that plays.
+   * While playing: the days just behind the playhead. Detections in them are drawn again,
+   * larger and brighter, fading as they age, so the eye follows where fire is new.
    */
-  showField: boolean
+  flare: [number, number] | null
+  /** Encoding B: cells to draw by standardized anomaly. Null draws detections by FRP. */
+  anomaly: AnomalyCell[] | null
+  base: BaseMap
+  graticule: boolean
+  labels: boolean
   selection: Selection | null
   topAreas: TopArea[]
   onMapClick: (lat: number, lon: number) => void
   onMapReady?: (map: MapLibreMap) => void
 }
 
-export function MapView({ hotspots, dayRange, softRange, showField, selection, topAreas, onMapClick, onMapReady }: MapViewProps) {
+export function MapView({
+  hotspots, dayRange, softRange, cells, flare, anomaly, base, graticule, labels, selection, topAreas, onMapClick, onMapReady,
+}: MapViewProps) {
   const container = useRef<HTMLDivElement>(null)
   const mapRef = useRef<MapLibreMap | null>(null)
   const overlayRef = useRef<MapLibreOverlay | null>(null)
@@ -52,30 +70,13 @@ export function MapView({ hotspots, dayRange, softRange, showField, selection, t
   const clickRef = useRef(onMapClick)
 
   const [zoom, setZoom] = useState(4)
+  /** The style has loaded and the relief, imagery and grid have been added to it. */
+  const [ready, setReady] = useState(false)
 
   hotspotsRef.current = hotspots
   clickRef.current = onMapClick
 
-  // The glow is worked out from the hotspots in the chosen days only. They arrive in day
-  // order, so a period is one unbroken stretch of the arrays: nothing is copied.
-  const [firstDay, lastDay] = dayRange
-  const field = useMemo(() => {
-    if (!hotspots || !showField) return null
-    const slice = sliceByDay(hotspots.day, firstDay, lastDay)
-    if (!slice) return null
-    const [start, end] = slice
-    return {
-      length: end - start,
-      attributes: {
-        getPosition: { value: hotspots.positions.subarray(start * 2, end * 2), size: 2 },
-        // Weighted by intensity, never by how many detections there were: the number of
-        // detections depends on which camera was flying.
-        getWeight: { value: hotspots.frp.subarray(start, end), size: 1 },
-      },
-    }
-  }, [hotspots, showField, firstDay, lastDay])
-
-  // The zoom decides how much is glow and how much is dots.
+  // The zoom decides whether cells or individual detections are drawn.
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -83,7 +84,8 @@ export function MapView({ hotspots, dayRange, softRange, showField, selection, t
     read()
     map.on('zoom', read)
     return () => { map.off('zoom', read) }
-  }, [])
+    // The map exists once the style is ready; before that there is nothing to listen to.
+  }, [ready])
 
   // One dot per hotspot, as buffers the card can keep.
   const binary = useMemo(() => (hotspots
@@ -97,6 +99,11 @@ export function MapView({ hotspots, dayRange, softRange, showField, selection, t
       },
     }
     : null), [hotspots])
+
+  // The same detections with no colour of their own, for under the anomaly cells.
+  const plain = useMemo(() => (binary
+    ? { length: binary.length, attributes: { getPosition: binary.attributes.getPosition, getFilterValue: binary.attributes.getFilterValue } }
+    : null), [binary])
 
   useEffect(() => {
     if (!container.current || mapRef.current) return
@@ -113,30 +120,59 @@ export function MapView({ hotspots, dayRange, softRange, showField, selection, t
         antialias: true,
       },
     })
-    map.addControl(new AttributionControl({ compact: true }), 'bottom-left')
+    // The scale, the position under the pointer and the credits are in the status bar.
     map.addControl(new NavigationControl({ showCompass: false }), 'bottom-left')
-    map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left')
+    map.once('load', () => {
+      dressStyle(map)
+      setReady(true)
+    })
     map.on('click', (e: MapMouseEvent) => clickRef.current(Number(e.lngLat.lat.toFixed(4)), Number(e.lngLat.lng.toFixed(4))))
 
     const overlay = new MapLibreOverlay({
       interleaved: true,
       layers: [],
-      getTooltip: ({ index, layer }) => {
+      getTooltip: ({ index, layer, object }) => {
         const h = hotspotsRef.current
-        if (!h || index < 0 || layer?.id !== 'hotspots') return null
-        const camera = h.sensor[index] === 0 ? 'older satellite camera' : 'newer satellite camera'
+        const row = (name: string, value: string) => `<tr><th>${name}</th><td>${value}</td></tr>`
+        const style = { background: 'none', color: 'inherit', padding: '0', font: 'inherit' }
+        if (layer?.id === 'frp-cells' && object) {
+          const cell = object as FrpCell
+          return {
+            className: 'probe',
+            html: `<strong>Cell ${cell.lat.toFixed(2)}°, ${cell.lon.toFixed(2)}°</strong><table>`
+              + row('ΣFRP', `${Math.round(cell.sumFrp).toLocaleString('en-CA')} MW`)
+              + row('n', `${cell.detections.toLocaleString('en-CA')} detections`)
+              + row('Mean', `${(cell.sumFrp / cell.detections).toFixed(1)} MW`)
+              + '</table>',
+            style,
+          }
+        }
+        if (layer?.id === 'anomaly-cells' && object) {
+          const cell = object as AnomalyCell
+          return {
+            className: 'probe',
+            html: `<strong>Cell ${cell.lat.toFixed(2)}°, ${cell.lon.toFixed(2)}°</strong><table>`
+              + row('z', `${cell.z >= 0 ? '+' : '−'}${Math.abs(cell.z).toFixed(2)}`)
+              + row('x', `${cell.x} fire-days`)
+              + row('μ', cell.mean.toFixed(2))
+              + row('σ', cell.sd.toFixed(2))
+              + '</table>',
+            style,
+          }
+        }
+        if (!h || index < 0 || !layer?.id.startsWith('hotspots')) return null
+        const older = h.sensor[index] === 0
+        const lat = h.positions[index * 2 + 1]
+        const lon = h.positions[index * 2]
         return {
-          html: `<strong>${formatDate(dateFromDay(h, index))}</strong><br/>`
-            + `Fire intensity ${h.frp[index].toFixed(1)} megawatts<br/>`
-            + `Seen by the ${camera}`,
-          style: {
-            background: '#0d0f12',
-            color: '#ece9e2',
-            font: '12.5px/1.45 "IBM Plex Sans", system-ui, sans-serif',
-            padding: '7px 10px',
-            borderRadius: '8px',
-            border: '1px solid rgba(236,233,226,0.3)',
-          },
+          className: 'probe',
+          html: `<strong>${dateFromDay(h, index)}</strong><table>`
+            + row('FRP', `${h.frp[index].toFixed(1)} MW`)
+            + row('Position', `${Math.abs(lat).toFixed(4)}°${lat < 0 ? 'S' : 'N'} ${Math.abs(lon).toFixed(4)}°${lon < 0 ? 'W' : 'E'}`)
+            + row('Sensor', older ? 'MODIS C6.1 · 1 km' : 'VIIRS C2 · 375 m')
+            + '</table>',
+          // The look is in the stylesheet, with everything else.
+          style,
         }
       },
     })
@@ -147,6 +183,7 @@ export function MapView({ hotspots, dayRange, softRange, showField, selection, t
 
     return () => {
       map.remove()
+      setReady(false)
       mapRef.current = null
       overlayRef.current = null
     }
@@ -155,44 +192,121 @@ export function MapView({ hotspots, dayRange, softRange, showField, selection, t
   }, [])
 
   useEffect(() => {
-    const overlay = overlayRef.current
-    if (!overlay) return
+    const map = mapRef.current
+    if (!map || !ready) return
+    applyBase(map, base)
+    showGraticule(map, graticule)
+    showLabels(map, labels)
+  }, [ready, base, graticule, labels])
 
-    const glow = field && field.length > 0 ? fieldShare(zoom) : 0
+  useEffect(() => {
+    const overlay = overlayRef.current
+    // The data sits under the map's names, so it waits for the style that holds them.
+    if (!overlay || !ready) return
+
+    const grain = Math.min(1, Math.max(0.42, 0.42 + (zoom - 4) * 0.2))
+    const half = CELL_DEG / 2
+    const square = (c: { lat: number; lon: number }): [number, number][] => [
+      [c.lon - half, c.lat - half], [c.lon + half, c.lat - half],
+      [c.lon + half, c.lat + half], [c.lon - half, c.lat + half],
+    ]
+    // Below this zoom a detection is smaller than a pixel; the grid cell is the honest unit.
+    const gridded = cells !== null && zoom < FIELD_GONE_ZOOM
     const layers = []
-    if (field && glow > 0) {
-      layers.push(new HeatmapLayer({
-        id: 'intensity-field',
-        data: field,
-        aggregation: 'SUM',
-        radiusPixels: 26,
-        intensity: 1.4,
-        threshold: 0.03,
-        colorRange: FIELD_COLOURS,
-        weightsTextureSize: 1024,
-        debounceTimeout: 150,
-        opacity: 0.85 * glow,
-        pickable: false,
+    if (gridded && !anomaly) {
+      layers.push(new PolygonLayer<FrpCell>({
+        id: 'frp-cells',
+        ...({ beforeId: UNDER_LABELS } as object),
+        data: cells,
+        getPolygon: square,
+        filled: true,
+        getFillColor: (c) => [...FRP_CLASS_COLOURS[frpClass(c.sumFrp)], 235],
+        stroked: zoom >= 5.5,
+        getLineColor: [6, 9, 11, 255],
+        lineWidthUnits: 'pixels',
+        getLineWidth: 0.5,
+        pickable: true,
       }))
     }
-    if (binary) {
-      layers.push(new ScatterplotLayer({
-        id: 'hotspots',
-        data: binary,
+    if (anomaly && plain) {
+      layers.push(new PolygonLayer<AnomalyCell>({
+        id: 'anomaly-cells',
+        // Deck's own layer types do not list the MapLibre slot a layer is drawn in.
+        ...({ beforeId: UNDER_LABELS } as object),
+        data: anomaly,
+        getPolygon: square,
+        filled: true,
+        stroked: zoom >= 5.5,
+        getLineColor: [6, 9, 11, 255],
+        lineWidthUnits: 'pixels',
+        getLineWidth: 0.5,
+        // Normal cells recede; departures either way are drawn firmly.
+        getFillColor: (c) => {
+          const k = zClass(c.z)
+          return [...Z_COLOURS[k], k === Z_NORMAL_CLASS ? 38 : 225]
+        },
+        pickable: true,
+      }))
+      // Zoomed in, the detections themselves, uncoloured, so a cell can be checked against them.
+      if (zoom >= FIELD_GONE_ZOOM) layers.push(new ScatterplotLayer({
+        id: 'hotspots-plain',
+        beforeId: UNDER_LABELS,
+        data: plain,
         radiusUnits: 'pixels',
-        radiusMinPixels: 1.4,
-        radiusMaxPixels: 14,
+        getRadius: 1.4,
+        radiusScale: grain,
+        radiusMinPixels: 0.7,
+        getFillColor: [240, 242, 244],
         stroked: false,
         pickable: true,
-        // Under the glow the dots stay as a faint grain, and take over as it fades.
-        opacity: 0.92 * (1 - 0.8 * glow),
+        opacity: 0.55,
+        extensions: [DAY_FILTER],
+        filterRange: dayRange,
+      }))
+    } else if (binary && !gridded) {
+      layers.push(new ScatterplotLayer({
+        id: 'hotspots',
+        beforeId: UNDER_LABELS,
+        data: binary,
+        radiusUnits: 'pixels',
+        // Zoomed out, the dots shrink to a fine grain rather than piling into blobs.
+        radiusScale: grain,
+        radiusMinPixels: 0.9,
+        radiusMaxPixels: 14,
+        // A vector marker: a filled disc with a dark keyline, so neighbours stay distinct.
+        stroked: zoom >= 6.5,
+        getLineColor: [6, 9, 11, 255],
+        lineWidthUnits: 'pixels',
+        getLineWidth: 0.6,
+        pickable: true,
+        opacity: 1,
         extensions: [DAY_FILTER],
         filterRange: dayRange,
         filterSoftRange: softRange,
       }))
     }
+    if (binary && flare && !anomaly) {
+      const [oldest, newest] = flare
+      layers.push(new ScatterplotLayer({
+        id: 'hotspots-fresh',
+        beforeId: UNDER_LABELS,
+        data: binary,
+        radiusUnits: 'pixels',
+        radiusScale: grain * 1.9,
+        radiusMinPixels: 1.6,
+        radiusMaxPixels: 12,
+        stroked: false,
+        pickable: false,
+        opacity: 0.38,
+        extensions: [DAY_FILTER],
+        filterRange: [oldest, newest],
+        filterSoftRange: [newest - (newest - oldest) * 0.2, newest],
+        parameters: ADDITIVE,
+      }))
+    }
 
-    if (topAreas.length) {
+    // Ten 0.1° outlines are a smudge until the map is close enough to tell them apart.
+    if (topAreas.length && zoom >= 5.2) {
       layers.push(new PolygonLayer<TopArea>({
         id: 'top-areas',
         data: topAreas,
@@ -213,7 +327,7 @@ export function MapView({ hotspots, dayRange, softRange, showField, selection, t
         getColor: [246, 243, 238, 245],
         outlineColor: [8, 8, 12, 255],
         outlineWidth: 3,
-        fontSettings: { sdf: true },
+        fontSettings: { sdf: true, fontSize: 64, buffer: 8, radius: 16 },
         pickable: false,
       }))
     }
@@ -224,20 +338,36 @@ export function MapView({ hotspots, dayRange, softRange, showField, selection, t
         data: [selection],
         getPolygon: (s) => circlePolygon(s.lat, s.lon, s.radius_km),
         filled: true,
-        getFillColor: [124, 196, 255, 14],
+        getFillColor: [...ACCENT, 10],
         stroked: true,
-        getLineColor: [124, 196, 255, 235],
+        getLineColor: [...ACCENT, 240],
         lineWidthUnits: 'pixels',
-        getLineWidth: 2,
+        getLineWidth: 1.5,
+      }))
+      // The circle states its own size, where it is drawn.
+      layers.push(new TextLayer<Selection>({
+        id: 'selection-radius',
+        data: [selection],
+        getPosition: (s) => [s.lon, s.lat + s.radius_km / 111.32],
+        getText: (s) => `R ${s.radius_km} km`,
+        getSize: 11,
+        getPixelOffset: [0, -11],
+        getColor: [...ACCENT, 255],
+        fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
+        fontWeight: 500,
+        outlineColor: [4, 7, 9, 255],
+        outlineWidth: 4,
+        fontSettings: { sdf: true, fontSize: 64, buffer: 8, radius: 16 },
+        pickable: false,
       }))
       layers.push(new ScatterplotLayer<Selection>({
         id: 'selection-centre',
         data: [selection],
         getPosition: (s) => [s.lon, s.lat],
         radiusUnits: 'pixels',
-        getRadius: 5,
+        getRadius: 4,
         filled: true,
-        getFillColor: [124, 196, 255, 255],
+        getFillColor: [...ACCENT, 255],
         stroked: true,
         getLineColor: [10, 10, 14, 255],
         lineWidthUnits: 'pixels',
@@ -246,7 +376,7 @@ export function MapView({ hotspots, dayRange, softRange, showField, selection, t
     }
 
     overlay.setProps({ layers })
-  }, [binary, field, zoom, dayRange, softRange, selection, topAreas])
+  }, [ready, binary, cells, zoom, dayRange, softRange, flare, anomaly, plain, selection, topAreas])
 
   return <div ref={container} className="map" role="application" aria-label="Map of fire detections in Quebec" />
 }

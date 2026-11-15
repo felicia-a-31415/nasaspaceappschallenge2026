@@ -120,36 +120,36 @@ export function ExportVideo({ timeline, epoch, getCanvas }: ExportVideoProps) {
         aria-expanded={open}
         aria-haspopup="dialog"
       >
-        {recording ? `Recording… ${Math.round(done * 100)}%` : 'Save video'}
+        {recording ? `Recording ${Math.round(done * 100)}%` : 'Export WebM'}
       </button>
       {problem && <span className="small warn-inline" role="alert">{problem}</span>}
 
       {open && (
-        <div className="popover surface" role="dialog" aria-label="Save a video">
+        <div className="popover surface" role="dialog" aria-label="Export animation">
           <fieldset>
-            <legend>What to record</legend>
+            <legend>Time span</legend>
             <label>
               <input type="radio" name="stretch" checked={stretch === 'record'} onChange={() => setStretch('record')} />
-              The whole record, 2000 to now
+              Full record
             </label>
             <label>
               <input type="radio" name="stretch" checked={stretch === 'period'} onChange={() => setStretch('period')} />
-              Only the chosen period <span className="muted">({periodLabel})</span>
+              Selected period <span className="muted">({periodLabel})</span>
             </label>
           </fieldset>
           <fieldset>
-            <legend>How long</legend>
+            <legend>Duration</legend>
             {LENGTHS.map((s) => (
               <label key={s}>
                 <input type="radio" name="seconds" checked={seconds === s} onChange={() => setSeconds(s)} />
-                About {s} seconds
+                {s} s
               </label>
             ))}
           </fieldset>
-          <button type="button" className="primary" onClick={start}>Record and save</button>
+          <button type="button" className="primary" onClick={start}>Record</button>
           <p className="small muted">
-            A 1920 × 1080 video file of the map as it is framed now, with the date, legend,
-            2012 notice and credits on every frame. Keep this tab in front while it records.
+            1920 × 1080 WebM of the current map frame, with date, FRP legend, sensor-transition
+            note and credits burned in. Keep this tab in the foreground while recording.
           </p>
         </div>
       )}

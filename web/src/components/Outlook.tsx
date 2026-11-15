@@ -1,10 +1,9 @@
-import { formatDate } from '../lib/days'
 import type { OutlookResponse } from '../types'
 
 const WORDS: Record<'low' | 'usual' | 'high', string> = {
-  low: 'Quieter than usual',
-  usual: 'About usual',
-  high: 'Busier than usual',
+  low: 'Below baseline',
+  usual: 'Near baseline',
+  high: 'Above baseline',
 }
 
 /**
@@ -30,8 +29,7 @@ export function Outlook({ data, raised = false, brief = false }: {
           <span className="level-mark" aria-hidden="true"><i /><i /><i /></span>
           <span className="level-word">{WORDS[data.level]}</span>
           <span className="small muted">
-            for {formatDate(data.window.from)} to {formatDate(data.window.to)}, worked out
-            on {formatDate(data.as_of)}
+            {data.window.from} → {data.window.to} · computed {data.as_of}
           </span>
         </p>
       )}
@@ -41,8 +39,8 @@ export function Outlook({ data, raised = false, brief = false }: {
             {data.reasons.map((reason) => <li key={reason}>{reason}</li>)}
           </ul>
           <p className="small muted">
-            Worked out from past seasons at this place and recent weather. It says how these
-            two weeks usually go here. It does not say where a fire is or where one will spread.
+            Climatological likelihood for the area from past seasons and recent weather.
+            Not a detection and not a spread forecast.
           </p>
         </>
       )}

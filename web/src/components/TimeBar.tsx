@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { dayToMonth, formatDate, formatMonth, formatMonthShort, monthStartDay, SWITCH_MONTH } from '../lib/days'
+import { dayToMonth, formatMonth, formatMonthShort, monthStartDay, SWITCH_MONTH } from '../lib/days'
+import { count } from '../lib/format'
 import { monthlyIntensity, profileHeights } from '../lib/profile'
 import { anchorFor, monthAt, nudge, spanFrom } from '../lib/rangeDrag'
 import type { MonthSpan } from '../lib/rangeDrag'
 import { dayShare } from '../hooks/useTimeline'
 import type { Timeline } from '../hooks/useTimeline'
-import { PLACE_SEARCH_CREDIT } from '../places'
+import { sliceByDay } from '../map/field'
 import type { HotspotArrays } from '../types'
 import { ExportVideo } from './ExportVideo'
 
@@ -21,7 +22,7 @@ export interface TimeBarProps {
   getCanvas: () => HTMLCanvasElement | null
 }
 
-export function TimeBar({ timeline, hotspots, dataThrough, getCanvas }: TimeBarProps) {
+export function TimeBar({ timeline, hotspots, getCanvas }: TimeBarProps) {
   const { months, playing, head, monthRange, speed, run } = timeline
   const { epoch } = hotspots
   const bar = useRef<HTMLDivElement>(null)
@@ -42,6 +43,10 @@ export function TimeBar({ timeline, hotspots, dataThrough, getCanvas }: TimeBarP
 
   const [from, to] = monthRange
   const chosen = to - from + 1
+  // How many detections the map is showing right now. They arrive in day order, so this
+  // is two look-ups, cheap enough to keep up with the playhead.
+  const slice = sliceByDay(hotspots.day, timeline.dayRange[0], timeline.dayRange[1])
+  const shown = slice ? slice[1] - slice[0] : null
 
   return (
     <div className="timedock" ref={bar}>
@@ -65,9 +70,10 @@ export function TimeBar({ timeline, hotspots, dataThrough, getCanvas }: TimeBarP
                 : `${formatMonthShort(months[from])} – ${formatMonthShort(months[to])}`}
           </strong>
           <span>
+            {shown !== null && <><b>{count(shown)}</b> detections · </>}
             {playing && run
-              ? `Everything since ${formatMonthShort(dayToMonth(epoch, run.fromDay))}`
-              : `${chosen} ${chosen === 1 ? 'month' : 'months'} · drag the ends`}
+              ? `since ${formatMonthShort(dayToMonth(epoch, run.fromDay))}`
+              : `${chosen} ${chosen === 1 ? 'month' : 'months'}`}
           </span>
         </div>
 
@@ -88,14 +94,9 @@ export function TimeBar({ timeline, hotspots, dataThrough, getCanvas }: TimeBarP
         <p className="notice">
           <span aria-hidden="true">▲</span>
           <span>
-            From February 2012 a sharper satellite camera took over and sees many more small
-            fires. More dots after 2012 does not by itself mean more fire.
+            Sensor transition 2012-02: MODIS (1 km) → VIIRS (375 m). Raw detection counts are
+            not comparable across this date; use harmonized activity.
           </span>
-        </p>
-        <p className="credits">
-          {dataThrough ? `Data to ${formatDate(dataThrough)} · ` : ''}
-          Fire data: NASA FIRMS (MODIS, VIIRS) · Base map © OpenStreetMap contributors, © CARTO
-          · {PLACE_SEARCH_CREDIT}
         </p>
       </div>
     </div>
@@ -244,6 +245,8 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
     ? { left: `${runAt}%`, width: `${Math.max(0, headAt - runAt)}%` }
     : { left: `${share(from)}%`, width: `${share(to) - share(from)}%` }
 
+  const lit: [number, number] = playing ? [runAt, Math.max(runAt, headAt)] : [share(from), share(to)]
+
   return (
     <div
       className={`track ${playing ? 'is-playing' : ''} ${dragging ? 'is-dragging' : ''}`}
@@ -260,8 +263,18 @@ function RangeTrack({ timeline, hotspots }: { timeline: Timeline; hotspots: Hots
           preserveAspectRatio="none"
           aria-hidden="true"
         >
+          <defs>
+            <clipPath id="track-lit">
+              <rect x={(lit[0] / 100) * last - (playing ? 0 : 0.5)} y="0" width={((lit[1] - lit[0]) / 100) * last + (playing ? 0 : 1)} height="100" />
+            </clipPath>
+          </defs>
           <path className="shape-older" d={shape.older} />
           <path className="shape-newer" d={shape.newer} />
+          {/* The months on the map are lit; the rest of the record stays grey. */}
+          <g clipPath="url(#track-lit)">
+            <path className="shape-older is-lit" d={shape.older} />
+            <path className="shape-newer is-lit" d={shape.newer} />
+          </g>
         </svg>
 
         {recordLast < last && (
