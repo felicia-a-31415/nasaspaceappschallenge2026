@@ -38,12 +38,14 @@ export function YearChart({ years }: { years: StatsYear[] }) {
             <g key={group.label} transform={`translate(${left}, 0)`}>
               {group.rows.map((row, i) => {
                 const height = (row.detections / top) * HEIGHT
+                // One lonely year should not become a giant block.
+                const bar = Math.min(26, Math.max(1, slot * 0.76))
                 return (
                   <rect
                     key={row.year}
-                    x={i * slot + slot * 0.12}
+                    x={i * slot + (slot - bar) / 2}
                     y={HEIGHT - height}
-                    width={Math.max(1, slot * 0.76)}
+                    width={bar}
                     height={Math.max(row.detections > 0 ? 1 : 0, height)}
                     className={group.label === 'Older camera' ? 'bar-older' : 'bar-newer'}
                   >

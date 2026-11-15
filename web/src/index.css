@@ -448,3 +448,74 @@ a { color: var(--accent); }
 .peak-count { display: block; font-weight: 400; }
 
 .this-year { margin: 0; line-height: 1.45; }
+
+/* --- downloads, top areas, weather --------------------------------------- */
+
+.downloads h3, .top-areas h3, .weather h3 {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+
+.download-row { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.download-link {
+  display: inline-block;
+  padding: 6px 11px;
+  border: 1px solid var(--panel-edge);
+  border-radius: 8px;
+  background: var(--raise);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 14px;
+}
+.download-link:hover { background: #2a2a33; }
+
+.downloads p { margin: 8px 0 0; line-height: 1.4; }
+
+.area-list { margin: 0; padding: 0; list-style: none; }
+.area-list li + li { margin-top: 4px; }
+.area-list button {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  background: transparent;
+  border-color: transparent;
+}
+.area-list button:hover { background: var(--raise); border-color: var(--panel-edge); }
+.area-list .rank { color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+.area-list .where { font-variant-numeric: tabular-nums; }
+.area-list .amount { font-weight: 600; font-variant-numeric: tabular-nums; }
+.top-areas p { margin: 8px 0 0; line-height: 1.4; }
+
+.weather-span { margin: 0 0 6px; }
+.weather-row {
+  display: grid;
+  grid-template-columns: 62px 1fr 72px;
+  gap: 8px;
+  align-items: end;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+.weather-name { color: var(--ink-dim); }
+.weather-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 24px;
+}
+.weather-bar {
+  flex: 1 1 auto;
+  min-width: 1px;
+  background: #5b8dd6;
+  border-radius: 1px;
+}
+.weather-bar.is-missing { background: repeating-linear-gradient(45deg, #33333d, #33333d 2px, transparent 2px, transparent 4px); }
+.weather-top { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+.weather p:last-child { margin: 8px 0 0; line-height: 1.4; }

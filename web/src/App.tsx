@@ -1,18 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 
-import { getAbout } from './api'
+import { getAbout, getTopAreas, getWeather } from './api'
 import { Legend } from './components/Legend'
 import { SearchBox } from './components/SearchBox'
 import { StatsPanel } from './components/StatsPanel'
+import { Downloads } from './components/Downloads'
+import { TopAreas } from './components/TopAreas'
+import { WeatherStrip } from './components/WeatherStrip'
 import { TimeBar } from './components/TimeBar'
 import { useHotspots } from './hooks/useHotspots'
 import { useTimeline } from './hooks/useTimeline'
+import { useSelectionQuery } from './hooks/useSelectionQuery'
 import { circlePolygon } from './lib/geo'
 import { MapView } from './map/MapView'
-import type { AboutResponse, Selection } from './types'
+import type { AboutResponse, Selection, TopArea } from './types'
 
 const DEFAULT_RADII = [50, 100, 200]
+
+/** A stable empty list, so the map is not handed a new array on every render. */
+const EMPTY_AREAS: TopArea[] = []
 
 interface Point {
   lat: number
@@ -48,6 +55,15 @@ export default function App() {
     }
     : null), [point, radiusKm, months, monthRange])
 
+  // The hardest-hit squares depend on the months alone, not on the circle.
+  const range = useMemo(
+    () => (months.length ? { from: months[monthRange[0]], to: months[monthRange[1]], limit: 10 } : null),
+    [months, monthRange],
+  )
+  const topAreas = useSelectionQuery(range, (key, signal) => getTopAreas(key, signal))
+  const weather = useSelectionQuery(selection, (sel, signal) => getWeather(sel, signal))
+  const areas = topAreas.status === 'ready' ? topAreas.data.areas : EMPTY_AREAS
+
   /** Show the whole circle, whatever its size. */
   const frame = useCallback((lat: number, lon: number, km: number) => {
     const map = mapRef.current
@@ -79,7 +95,7 @@ export default function App() {
         hotspots={data}
         dayRange={timeline.dayRange}
         selection={selection}
-        topAreas={[]}
+        topAreas={areas}
         onMapClick={(lat, lon) => setPoint({ lat, lon, name: null })}
         onMapReady={(map) => { mapRef.current = map }}
       />
@@ -99,7 +115,14 @@ export default function App() {
 
       <aside className="side panel-surface">
         {selection
-          ? <StatsPanel selection={selection} placeName={point?.name ?? null} />
+          ? (
+            <>
+              <StatsPanel selection={selection} placeName={point?.name ?? null} />
+              <WeatherStrip state={weather} />
+              <Downloads selection={selection} />
+              <TopAreas state={topAreas} onPick={choose} />
+            </>
+          )
           : (
             <div className="prompt">
               <h2>Pick a place</h2>
@@ -111,6 +134,7 @@ export default function App() {
                 The map behind shows every fire detection in Quebec since November 2000,
                 playing through time. Pause whenever you like.
               </p>
+              <TopAreas state={topAreas} onPick={choose} />
             </div>
           )}
       </aside>
