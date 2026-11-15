@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { getAbout } from './api'
 import { Legend } from './components/Legend'
+import { TimeBar } from './components/TimeBar'
+import { useTimeline } from './hooks/useTimeline'
 import { useHotspots } from './hooks/useHotspots'
 import { MapView } from './map/MapView'
 import type { AboutResponse, Selection } from './types'
@@ -19,14 +21,14 @@ export default function App() {
   }, [])
 
   const data = hotspots.status === 'ready' ? hotspots.data : null
-  const dayRange: [number, number] = data ? [data.minDay, data.maxDay] : [0, 0]
+  const timeline = useTimeline(data)
   const dataThrough = about?.data_through ?? data?.dataThrough
 
   return (
     <div className="app">
       <MapView
         hotspots={data}
-        dayRange={dayRange}
+        dayRange={timeline.dayRange}
         selection={selection}
         topAreas={[]}
         onMapClick={(lat, lon) => setSelection({ lat, lon, radius_km: selection?.radius_km ?? 100 })}
@@ -40,6 +42,7 @@ export default function App() {
       </div>
 
       {data && <Legend dataThrough={dataThrough} />}
+      {data && <TimeBar timeline={timeline} epoch={data.epoch} />}
 
       {hotspots.status === 'loading' && (
         <div className="curtain">

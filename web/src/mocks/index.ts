@@ -4,24 +4,29 @@
 import { cellCentre, cellIndex, distanceKm } from '../lib/geo'
 import { dayToDate, dayToMonth, formatMonth, monthEndDay, monthRange, monthStartDay, SWITCH_MONTH } from '../lib/days'
 import type {
-  AboutResponse, ActivityMonth, ActivityResponse, ActivitySummary, HotspotArrays, Selection,
-  StatsResponse, StatsYear, TopAreasResponse, WeatherResponse,
+  AboutResponse, ActivityMonth, ActivityResponse, ActivitySummary, Coverage, HotspotArrays,
+  Selection, StatsResponse, StatsYear, TopAreasResponse, WeatherResponse,
 } from '../types'
 import { mockHotspots } from './store'
 
 /** Fitted on the overlap years by the harmonization step (outputs/quebec/model.json). */
-const CURVE = { a: 1.3313349657984568, b: 0.8627849768680368, sigma: 0.558811138426262 }
+const CURVES: Record<number, { a: number; b: number; sigma: number }> = {
+  50: { a: -0.047668911971527235, b: 1.083096985358787, sigma: 0.7815783363527793 },
+  100: { a: 0.21069587208303397, b: 1.0179237762716922, sigma: 0.9990252208363363 },
+  200: { a: 0.3063796623658642, b: 0.9835119328252888, sigma: 1.0811683604291271 },
+}
 
 const TERRA_ONLY_UNTIL = '2002-06'
 
 /** Lift a count from the older camera to what the newer one would have seen. */
-function lift(modisCellDays: number): { activity: number; low: number; high: number } {
+function lift(modisCellDays: number, radiusKm: number): { activity: number; low: number; high: number } {
   if (modisCellDays <= 0) return { activity: 0, low: 0, high: 0 }
-  const logV = CURVE.a + CURVE.b * Math.log(modisCellDays)
+  const curve = CURVES[radiusKm] ?? CURVES[100]
+  const logV = curve.a + curve.b * Math.log(modisCellDays)
   return {
     activity: Math.round(Math.exp(logV)),
-    low: Math.round(Math.exp(logV - CURVE.sigma)),
-    high: Math.round(Math.exp(logV + CURVE.sigma)),
+    low: Math.round(Math.exp(logV - curve.sigma)),
+    high: Math.round(Math.exp(logV + curve.sigma)),
   }
 }
 
@@ -48,15 +53,15 @@ function median(values: number[]): number {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
 }
 
-/** "canada" everywhere inside the downloaded box, "outside" beyond it. */
-function coverageFor(h: HotspotArrays, selection: Selection): 'canada' | 'partial' | 'outside' {
+/** Quebec is loaded, so inside the box is "preloaded"; the mocks fetch nothing on demand. */
+function coverageFor(h: HotspotArrays, selection: Selection): Coverage {
   const [w, s, e, n] = h.bbox
   const { lat, lon, radius_km } = selection
   const dLat = radius_km / 111
   const dLon = dLat / Math.max(0.1, Math.cos(lat * Math.PI / 180))
   if (lat + dLat < s || lat - dLat > n || lon + dLon < w || lon - dLon > e) return 'outside'
   if (lat - dLat < s || lat + dLat > n || lon - dLon < w || lon + dLon > e) return 'partial'
-  return 'canada'
+  return 'preloaded'
 }
 
 export async function about(): Promise<AboutResponse> {
@@ -66,21 +71,13 @@ export async function about(): Promise<AboutResponse> {
     data_through: h.dataThrough,
     model: {
       kind: 'power curve on a log scale',
-      a: CURVE.a,
-      b: CURVE.b,
-      sigma: CURVE.sigma,
+      by_radius: CURVES,
       cell_deg: 0.1,
       switch_month: SWITCH_MONTH,
       fit_months: ['2012-02', '2025-12'],
     },
-    validation: {
-      method: 'each overlap year hidden in turn',
-      years_tested: 14,
-      mean_error_pct: { corrected: 17.2, uncorrected: 54.1, fixed_multiplier: 33.7 },
-    },
-    circle_validation: {
-      note: 'The correction is valid for an area over a month, not for one square on one day.',
-    },
+    validation: [],
+    circle_validation: [],
   }
 }
 
@@ -90,8 +87,8 @@ export async function activity(selection: Selection): Promise<ActivityResponse> 
   const coverage = coverageFor(h, selection)
   if (coverage === 'outside') {
     return {
-      coverage, progress: null, curve_source: 'canada', data_through: h.dataThrough,
-      months: [], summary: null,
+      coverage, progress: null, curve_source: 'quebec', data_through: h.dataThrough,
+      months: [], summary: null, detail: 'There is no fire history for this place yet.',
     }
   }
 
@@ -111,7 +108,7 @@ export async function activity(selection: Selection): Promise<ActivityResponse> 
   const all: ActivityMonth[] = monthRange(firstMonth, lastMonth).map((month) => {
     const estimated = month < SWITCH_MONTH
     const raw = (seen.get(`${estimated ? 0 : 1}|${month}`)?.size) ?? 0
-    const value = estimated ? lift(raw) : { activity: raw, low: raw, high: raw }
+    const value = estimated ? lift(raw, selection.radius_km) : { activity: raw, low: raw, high: raw }
     return { month, ...value, estimated, terra_only: month <= TERRA_ONLY_UNTIL, median: 0 }
   })
 
@@ -132,10 +129,11 @@ export async function activity(selection: Selection): Promise<ActivityResponse> 
   return {
     coverage,
     progress: null,
-    curve_source: 'canada',
+    curve_source: 'quebec',
     data_through: h.dataThrough,
     months,
     summary: summarise(all, months),
+    detail: null,
   }
 }
 
@@ -199,8 +197,8 @@ export async function stats(selection: Selection): Promise<StatsResponse> {
   const h = await mockHotspots()
   const coverage = coverageFor(h, selection)
   const empty: StatsResponse = {
-    coverage, detections: 0, mean_frp: 0, sum_frp: 0, peak_day: null,
-    by_year: [], typical_year: null, this_year: null,
+    coverage, detail: 'There is no fire history for this place yet.', detections: 0,
+    mean_frp: null, sum_frp: 0, peak_day: null, by_year: [], typical_year: null, this_year: null,
   }
   if (coverage === 'outside') return empty
 
@@ -242,7 +240,7 @@ export async function stats(selection: Selection): Promise<StatsResponse> {
     .map(([year, row]) => ({
       year,
       detections: row.detections,
-      mean_frp: Number((row.sum / row.detections).toFixed(1)),
+      mean_frp: row.detections ? Number((row.sum / row.detections).toFixed(1)) : null,
       sum_frp: Number(row.sum.toFixed(1)),
       sensor: year < 2012 ? 'MODIS' : 'VIIRS',
     }))
@@ -253,8 +251,9 @@ export async function stats(selection: Selection): Promise<StatsResponse> {
 
   return {
     coverage,
+    detail: null,
     detections,
-    mean_frp: detections ? Number((sum / detections).toFixed(1)) : 0,
+    mean_frp: detections ? Number((sum / detections).toFixed(1)) : null,
     sum_frp: Number(sum.toFixed(1)),
     peak_day: peak,
     by_year,
@@ -262,16 +261,15 @@ export async function stats(selection: Selection): Promise<StatsResponse> {
       ? {
         detections: Math.round(median(viirsYears.map(([, r]) => r.detections))),
         sum_frp: Number(median(viirsYears.map(([, r]) => r.sum)).toFixed(1)),
+        years: viirsYears.length,
       }
       : null,
-    this_year: current
-      ? {
-        year: thisYear,
-        detections: current.detections,
-        mean_frp: Number((current.sum / current.detections).toFixed(1)),
-        sum_frp: Number(current.sum.toFixed(1)),
-      }
-      : { year: thisYear, detections: 0, mean_frp: 0, sum_frp: 0 },
+    this_year: {
+      year: thisYear,
+      detections: current?.detections ?? 0,
+      mean_frp: current ? Number((current.sum / current.detections).toFixed(1)) : null,
+      sum_frp: Number((current?.sum ?? 0).toFixed(1)),
+    },
   }
 }
 

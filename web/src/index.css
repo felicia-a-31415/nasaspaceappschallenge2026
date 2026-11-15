@@ -256,3 +256,103 @@ a { color: var(--accent); }
 }
 
 .legend-note { margin: 6px 0 0; line-height: 1.35; }
+
+/* --- time bar ------------------------------------------------------------ */
+
+.timebar-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.play { min-width: 92px; font-weight: 600; }
+
+.speeds { display: flex; gap: 4px; }
+.speeds button { padding: 5px 9px; font-size: 13px; }
+
+.readout {
+  margin: 0 0 0 auto;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.slider {
+  position: relative;
+  height: 30px;
+  margin: 10px 2px 0;
+}
+
+.slider-track,
+.slider-fill {
+  position: absolute;
+  top: 12px;
+  height: 6px;
+  border-radius: 3px;
+}
+.slider-track { left: 0; right: 0; background: #33333d; }
+.slider-fill { background: var(--accent); }
+.slider.is-playing .slider-fill { background: var(--accent); opacity: 0.85; }
+
+.slider-switch {
+  position: absolute;
+  top: 4px;
+  width: 2px;
+  height: 22px;
+  background: var(--estimated);
+  transform: translateX(-1px);
+}
+.slider-switch span {
+  position: absolute;
+  top: -15px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px;
+  color: var(--estimated);
+  white-space: nowrap;
+}
+
+.slider-input {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  top: 6px;
+  width: calc(100% + 4px);
+  height: 18px;
+  margin: 0;
+  background: none;
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: none;
+}
+.slider-input::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid #15151a;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+  cursor: grab;
+}
+.slider-input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--ink);
+  border: 2px solid #15151a;
+  cursor: grab;
+}
+.slider-input:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.slider-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 2px;
+}
+
+.timebar .notice { margin: 8px 0 0; }

@@ -1,8 +1,17 @@
 // Every response shape the server promises, copied from the frontend handoff.
 // If the backend changes a shape, this file is the only place to update.
 
-/** Does the selection circle sit inside the data we have? */
-export type Coverage = 'canada' | 'partial' | 'outside'
+/**
+ * Where the answer came from. Quebec is already loaded; anywhere else in reach is
+ * fetched from NASA on demand, and then the first three values are states of that
+ * fetch. "outside" means no answer is possible at all.
+ */
+export type Coverage = 'preloaded' | 'partial' | 'queued' | 'fetching' | 'fetched' | 'outside'
+
+/** True once there are numbers to show, rather than a fetch still running. */
+export function hasAnswer(coverage: Coverage): boolean {
+  return coverage === 'preloaded' || coverage === 'partial' || coverage === 'fetched'
+}
 
 /** The one selection every endpoint except /api/hotspots is asked about. */
 export interface Selection {
@@ -52,12 +61,15 @@ export interface ActivitySummary {
 
 export interface ActivityResponse {
   coverage: Coverage
+  /** 0 to 1 while a place outside Quebec is being fetched. */
   progress: number | null
-  curve_source: string
-  data_through: string
+  curve_source: string | null
+  data_through: string | null
   months: ActivityMonth[]
   /** Null when there is too little history to compare. */
   summary: ActivitySummary | null
+  /** The server's own sentence when it cannot answer: show it as it is. */
+  detail: string | null
 }
 
 // --- GET /api/about --------------------------------------------------------
@@ -67,10 +79,13 @@ export interface AboutResponse {
   radii_km: number[]
   /** Date of the newest hotspot. */
   data_through: string
-  /** Shapes below are for the explanation panel only and are not fixed yet. */
+  region?: string
+  /** The fitted correction. For an explanation panel only. */
   model: Record<string, unknown>
-  validation: Record<string, unknown>
-  circle_validation: Record<string, unknown>
+  /** One row per hidden year: how far the correction was out. */
+  validation: Record<string, number | string>[]
+  /** The same test at circle size. */
+  circle_validation: Record<string, number | string>[]
 }
 
 // --- GET /api/hotspots?region=quebec --------------------------------------
@@ -119,7 +134,8 @@ export type SensorName = 'MODIS' | 'VIIRS'
 export interface StatsYear {
   year: number
   detections: number
-  mean_frp: number
+  /** Null in a year with no detections. */
+  mean_frp: number | null
   sum_frp: number
   /** Years on either side of 2012 come from different cameras. */
   sensor: SensorName
@@ -127,14 +143,16 @@ export interface StatsYear {
 
 export interface StatsResponse {
   coverage: Coverage
+  detail: string | null
   detections: number
-  mean_frp: number
+  mean_frp: number | null
   sum_frp: number
   peak_day: { date: string; detections: number } | null
+  /** Every year in the chosen range, including quiet ones. */
   by_year: StatsYear[]
-  /** Median over years measured by the same camera as `this_year`. */
-  typical_year: { detections: number; sum_frp: number } | null
-  this_year: { year: number; detections: number; mean_frp: number; sum_frp: number } | null
+  /** Median over the other full years measured by the same camera as `this_year`. */
+  typical_year: { detections: number; sum_frp: number; years: number } | null
+  this_year: { year: number; detections: number; mean_frp: number | null; sum_frp: number } | null
 }
 
 // --- GET /api/top-areas ----------------------------------------------------
@@ -168,9 +186,34 @@ export interface WeatherResponse {
   days: WeatherDay[]
 }
 
-// --- GET /api/outlook (stretch, shape not fixed) ---------------------------
+// --- GET /api/outlook ------------------------------------------------------
 
+/**
+ * How fire-prone the next two weeks usually are at this place, from past seasons and
+ * recent weather. Never a forecast of where a fire will spread: say so on the page.
+ */
 export interface OutlookResponse {
-  level: 'low' | 'usual' | 'high'
+  coverage: Coverage
+  detail: string | null
+  /** The server's own label for this number. Use it as the heading. */
+  label: string
+  as_of: string
+  window: { from: string; to: string }
+  /** Null when there is not enough history to say anything. */
+  level: 'low' | 'usual' | 'high' | null
+  /** Plain sentences, already written for users. */
   reasons: string[]
+  history: {
+    years: number
+    years_with_fire: number
+    median_activity: number
+    season_factor: number | null
+  } | null
+  recent: { activity: number; usual: number } | null
+  weather: {
+    rain_mm: number
+    usual_rain_mm: number
+    temp_max_c: number
+    usual_temp_max_c: number
+  } | null
 }
