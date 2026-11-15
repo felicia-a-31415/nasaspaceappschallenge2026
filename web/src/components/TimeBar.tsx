@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { dayToMonth, formatMonth, SWITCH_MONTH } from '../lib/days'
 import type { Timeline } from '../hooks/useTimeline'
+import { ExportVideo } from './ExportVideo'
 
 const SPEEDS = [0.5, 1, 2]
 
@@ -10,7 +11,14 @@ function switchPosition(months: string[]): number {
   return at < 0 ? 0 : (at / (months.length - 1)) * 100
 }
 
-export function TimeBar({ timeline, epoch }: { timeline: Timeline; epoch: string }) {
+export interface TimeBarProps {
+  timeline: Timeline
+  epoch: string
+  /** The map's own canvas, for the video export. */
+  getCanvas: () => HTMLCanvasElement | null
+}
+
+export function TimeBar({ timeline, epoch, getCanvas }: TimeBarProps) {
   const { months, playing, head, monthRange, speed } = timeline
   const bar = useRef<HTMLDivElement>(null)
 
@@ -61,6 +69,8 @@ export function TimeBar({ timeline, epoch }: { timeline: Timeline; epoch: string
             </button>
           ))}
         </div>
+
+        <ExportVideo timeline={timeline} epoch={epoch} getCanvas={getCanvas} />
 
         <p className="readout" aria-live="polite">
           {playing

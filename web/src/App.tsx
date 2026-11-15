@@ -151,7 +151,7 @@ export default function App() {
       </aside>
 
       {data && <Legend dataThrough={dataThrough} />}
-      {data && <TimeBar timeline={timeline} epoch={data.epoch} />}
+      {data && <TimeBar timeline={timeline} epoch={data.epoch} getCanvas={() => mapRef.current?.getCanvas() ?? null} />}
 
       {hotspots.status === 'loading' && (
         <div className="curtain">

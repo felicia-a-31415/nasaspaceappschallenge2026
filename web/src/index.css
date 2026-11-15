@@ -273,6 +273,10 @@ a { color: var(--accent); }
 .speeds { display: flex; gap: 4px; }
 .speeds button { padding: 5px 9px; font-size: 13px; }
 
+.export { font-size: 13px; padding: 5px 10px; }
+
+.warn-inline { color: var(--warn); }
+
 .readout {
   margin: 0 0 0 auto;
   font-size: 22px;

@@ -17,6 +17,8 @@ export interface Timeline {
   monthRange: [number, number]
   speed: number
   play: () => void
+  /** Start again from the first hotspot. */
+  replay: () => void
   pause: () => void
   setMonthRange: (update: (current: [number, number]) => [number, number]) => void
   setSpeed: (speed: number) => void
@@ -39,6 +41,8 @@ export function useTimeline(hotspots: HotspotArrays | null, autoPlay = true): Ti
   const maxDay = hotspots?.maxDay ?? 0
   const headRef = useRef(head)
   headRef.current = head
+  const monthsRef = useRef(months)
+  monthsRef.current = months
 
   // The record arrived: lay out its months and start the run.
   useEffect(() => {
@@ -63,6 +67,9 @@ export function useTimeline(hotspots: HotspotArrays | null, autoPlay = true): Ti
       if (reached >= maxDay) {
         setHead(maxDay)
         setPlaying(false)
+        // The run has just shown everything up to the last day, so the range it hands
+        // over ends there too.
+        setMonthSpan(([start]) => [start, monthsRef.current.length - 1])
         return
       }
       setHead(reached)
@@ -76,6 +83,11 @@ export function useTimeline(hotspots: HotspotArrays | null, autoPlay = true): Ti
     setHead((current) => (current >= maxDay ? minDay : current))
     setPlaying(true)
   }, [minDay, maxDay])
+
+  const replay = useCallback(() => {
+    setHead(minDay)
+    setPlaying(true)
+  }, [minDay])
 
   // Pausing hands the chosen range to the rest of the page, up to where the run reached.
   const pause = useCallback(() => {
@@ -92,6 +104,6 @@ export function useTimeline(hotspots: HotspotArrays | null, autoPlay = true): Ti
 
   return {
     months, playing, head, dayRange, monthRange: monthSpan, speed,
-    play, pause, setMonthRange: setMonthSpan, setSpeed,
+    play, replay, pause, setMonthRange: setMonthSpan, setSpeed,
   }
 }
