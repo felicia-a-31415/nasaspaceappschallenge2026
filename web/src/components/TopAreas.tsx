@@ -1,4 +1,4 @@
-import { count, megawatts } from '../lib/format'
+import { megawatts, plural } from '../lib/format'
 import type { QueryState } from '../hooks/useSelectionQuery'
 import type { TopAreasResponse } from '../types'
 
@@ -37,7 +37,7 @@ export function TopAreas({ state, onPick }: TopAreasProps) {
               <span className="where">{area.lat.toFixed(2)}, {area.lon.toFixed(2)}</span>
               <span className="amount">
                 {megawatts(area.sum_frp)}
-                <span className="small muted"> · {count(area.detections)} detections</span>
+                <span className="small muted"> · {plural(area.detections, 'detection')}</span>
               </span>
             </button>
           </li>

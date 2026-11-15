@@ -14,6 +14,11 @@ export function megawatts(value: number | null): string {
   return `${value.toFixed(1)} MW`
 }
 
+/** "1 detection", "41,230 detections". */
+export function plural(value: number, word: string): string {
+  return `${count(value)} ${word}${Math.round(value) === 1 ? '' : 's'}`
+}
+
 /** "49.9, -74.4", the way the search box accepts it back. */
 export function coordinates(lat: number, lon: number): string {
   return `${lat.toFixed(4)}, ${lon.toFixed(4)}`

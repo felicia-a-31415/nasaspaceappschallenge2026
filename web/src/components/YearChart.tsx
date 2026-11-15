@@ -1,4 +1,4 @@
-import { count } from '../lib/format'
+import { count, plural } from '../lib/format'
 import type { StatsYear } from '../types'
 
 const WIDTH = 300
@@ -49,7 +49,7 @@ export function YearChart({ years }: { years: StatsYear[] }) {
                     height={Math.max(row.detections > 0 ? 1 : 0, height)}
                     className={group.label === 'Older camera' ? 'bar-older' : 'bar-newer'}
                   >
-                    <title>{`${row.year}: ${count(row.detections)} detections`}</title>
+                    <title>{`${row.year}: ${plural(row.detections, 'detection')}`}</title>
                   </rect>
                 )
               })}

@@ -61,5 +61,12 @@ export function formatDate(date: string): string {
   return `${d} ${MONTH_NAMES[m - 1]} ${y}`
 }
 
+/** "May to July 2023", "January 2009", "2023": how the server names a summary's period. */
+export function periodLabel(year: number, months: number[]): string {
+  if (months.length === 12) return String(year)
+  if (months.length === 1) return `${MONTH_NAMES[months[0] - 1]} ${year}`
+  return `${MONTH_NAMES[months[0] - 1]} to ${MONTH_NAMES[months[months.length - 1] - 1]} ${year}`
+}
+
 /** The month a sharper camera took over, marked everywhere time is shown. */
 export const SWITCH_MONTH = '2012-02'

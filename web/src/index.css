@@ -445,6 +445,8 @@ a { color: var(--accent); }
 
 .figures-note { margin: -2px 0 0; line-height: 1.35; }
 
+.compare-note { margin: -6px 0 0; line-height: 1.4; }
+
 .peak-count { display: block; font-weight: 400; }
 
 .this-year { margin: 0; line-height: 1.45; }

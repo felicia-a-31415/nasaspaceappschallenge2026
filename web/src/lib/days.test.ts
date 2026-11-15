@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   dateToDay, dayToDate, dayToMonth, formatDate, formatMonth, monthEndDay, monthRange, monthStartDay,
+  periodLabel,
 } from './days'
 
 const EPOCH = '2000-01-01'
@@ -28,6 +29,12 @@ describe('days', () => {
     expect(dayToDate(EPOCH, monthEndDay(EPOCH, '2023-06'))).toBe('2023-06-30')
     expect(dayToDate(EPOCH, monthEndDay(EPOCH, '2024-02'))).toBe('2024-02-29')
     expect(dayToDate(EPOCH, monthEndDay(EPOCH, '2023-12'))).toBe('2023-12-31')
+  })
+
+  it('names a summary period the way the server does', () => {
+    expect(periodLabel(2009, [1])).toBe('January 2009')
+    expect(periodLabel(2023, [5, 6, 7])).toBe('May to July 2023')
+    expect(periodLabel(2023, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])).toBe('2023')
   })
 
   it('writes dates the way the page reads them', () => {

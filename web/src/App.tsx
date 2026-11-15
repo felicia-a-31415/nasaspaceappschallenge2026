@@ -18,6 +18,7 @@ import { MapView } from './map/MapView'
 import type { AboutResponse, Selection, TopArea } from './types'
 
 const DEFAULT_RADII = [50, 100, 200]
+const WEATHER_MONTHS = 36
 
 /** A stable empty list, so the map is not handed a new array on every render. */
 const EMPTY_AREAS: TopArea[] = []
@@ -62,7 +63,14 @@ export default function App() {
     [months, monthRange],
   )
   const topAreas = useSelectionQuery(range, (key, signal) => getTopAreas(key, signal))
-  const weather = useSelectionQuery(selection, (sel, signal) => getWeather(sel, signal))
+  // Daily weather over a 26-year range would be a huge request for little gain, so the
+  // strip covers at most the last three years of the chosen period and says so.
+  const weatherFor = useMemo(() => {
+    if (!selection || !months.length) return null
+    const start = Math.max(monthRange[0], monthRange[1] - (WEATHER_MONTHS - 1))
+    return { ...selection, from: months[start] }
+  }, [selection, months, monthRange])
+  const weather = useSelectionQuery(weatherFor, (sel, signal) => getWeather(sel, signal))
   const outlook = useSelectionQuery(selection, (sel, signal) => getOutlook(sel, signal))
   const areas = topAreas.status === 'ready' ? topAreas.data.areas : EMPTY_AREAS
 

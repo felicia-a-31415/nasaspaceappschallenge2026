@@ -2,7 +2,7 @@
 // Shapes come from src/types.ts and must stay identical to the server's.
 
 import { cellCentre, cellIndex, distanceKm } from '../lib/geo'
-import { dateToDay, dayToDate, dayToMonth, formatMonth, monthEndDay, monthRange, monthStartDay, SWITCH_MONTH } from '../lib/days'
+import { dateToDay, dayToDate, dayToMonth, monthEndDay, monthRange, monthStartDay, periodLabel, SWITCH_MONTH } from '../lib/days'
 import type {
   AboutResponse, ActivityMonth, ActivityResponse, ActivitySummary, Coverage, HotspotArrays,
   OutlookResponse, Selection, StatsResponse, StatsYear, TopAreasResponse, WeatherResponse,
@@ -140,64 +140,74 @@ export async function activity(selection: Selection): Promise<ActivityResponse> 
   }
 }
 
-/** Compare the chosen stretch with the same stretch in every other year. */
+/**
+ * The server compares the last year in the range, over the months of the range, with the
+ * same months in every other year (harmonize/query.py: summarize). The mock does the
+ * same, down to the wording, so switching VITE_USE_MOCKS off changes nothing on screen.
+ */
+const MIN_COMPARISON_YEARS = 5
+
 function summarise(all: ActivityMonth[], months: ActivityMonth[]): ActivitySummary | null {
   if (months.length === 0) return null
-  const total = months.reduce((sum, m) => sum + m.activity, 0)
-  const span = months.length
-  const startCalendarMonth = months[0].month.slice(5)
-
-  // Every window of the same length starting in the same calendar month.
-  const windows: { year: number; total: number }[] = []
-  for (let i = 0; i + span <= all.length; i++) {
-    if (all[i].month.slice(5) !== startCalendarMonth) continue
-    let sum = 0
-    for (let j = i; j < i + span; j++) sum += all[j].activity
-    windows.push({ year: Number(all[i].month.slice(0, 4)), total: sum })
-  }
-  if (windows.length < 3) return null
-
-  const usual = median(windows.map((w) => w.total))
-  const ratio = usual > 0 ? Number((total / usual).toFixed(1)) : null
-  const sorted = [...windows].sort((a, b) => b.total - a.total)
-  const rank = sorted.findIndex((w) => w.year === Number(months[0].month.slice(0, 4))) + 1
-  const firstYear = Number(all[0].month.slice(0, 4))
-
   const first = months[0].month
-  const lastMonth = months[span - 1].month
-  const sameYear = first.slice(0, 4) === lastMonth.slice(0, 4)
-  const when = span === 1
-    ? formatMonth(first)
-    : sameYear
-      ? `${formatMonth(first).split(' ')[0]} to ${formatMonth(lastMonth)}`
-      : `${formatMonth(first)} to ${formatMonth(lastMonth)}`
-  let sentence: string
-  if (total === 0) {
-    sentence = `${when} had no fire recorded here.`
-  } else if (ratio === null) {
-    sentence = `${when} had fire activity of ${total} here, where the usual amount is none at all.`
-  } else if (ratio >= 1.2) {
-    sentence = `${when} had ${ratio} times the usual amount of fire here.`
-  } else if (ratio <= 0.8) {
-    sentence = `${when} had ${ratio} times the usual amount of fire here, less than normal.`
-  } else {
-    sentence = `${when} had about the usual amount of fire here.`
+  const last = months[months.length - 1].month
+  const year = Number(last.slice(0, 4))
+  const firstMonthNumber = Number(first.slice(0, 4)) === year ? Number(first.slice(5)) : 1
+  const wanted: number[] = []
+  for (let m = firstMonthNumber; m <= Number(last.slice(5)); m++) wanted.push(m)
+
+  // Only years holding every one of those months can be compared.
+  const perYear = new Map<number, { total: number; count: number }>()
+  for (const row of all) {
+    if (!wanted.includes(Number(row.month.slice(5)))) continue
+    const y = Number(row.month.slice(0, 4))
+    const seen = perYear.get(y) ?? { total: 0, count: 0 }
+    seen.total += row.activity
+    seen.count += 1
+    perYear.set(y, seen)
   }
-  if (total > 0 && rank === 1) {
-    sentence += ` The most since records began in ${firstYear}.`
-  } else if (total > 0 && rank > 0) {
-    sentence += ` Rank ${rank} of the ${windows.length} years on record.`
-  }
+  const complete = [...perYear.entries()].filter(([, v]) => v.count === wanted.length)
+  const here = complete.find(([y]) => y === year)
+  if (!here) return null
+  const others = complete.filter(([y]) => y !== year)
+  if (others.length < MIN_COMPARISON_YEARS) return null
+
+  const total = here[1].total
+  const usual = median(others.map(([, v]) => v.total))
+  const ratio = usual > 0 ? total / usual : null
+  const higherBefore = others.filter(([y, v]) => v.total > total && y < year).map(([y]) => y)
+  const label = periodLabel(year, wanted)
+
   return {
-    year: Number(months[0].month.slice(0, 4)),
-    months: months.map((m) => Number(m.month.slice(5))),
-    total,
-    median: usual,
-    ratio,
-    rank: rank > 0 ? rank : windows.length,
-    years_compared: windows.length,
-    sentence,
+    year,
+    months: wanted,
+    total: Number(total.toFixed(1)),
+    median: Number(usual.toFixed(1)),
+    ratio: ratio === null ? null : Number(ratio.toFixed(2)),
+    rank: others.filter(([, v]) => v.total > total).length + 1,
+    years_compared: others.length,
+    sentence: sentenceFor(label, total, usual, ratio,
+      higherBefore.length ? Math.max(...higherBefore) : null,
+      Math.min(...others.map(([y]) => y))),
   }
+}
+
+function sentenceFor(label: string, total: number, usual: number, ratio: number | null,
+                     earlierHigher: number | null, firstYear: number): string {
+  if (usual === 0) {
+    return total === 0
+      ? `No fire was detected here in ${label}. That is normal for this place.`
+      : `${label} had fire here. In most years there is none.`
+  }
+  if (ratio !== null && ratio >= 1.5) {
+    const shown = ratio >= 10 ? ratio.toFixed(0) : ratio.toFixed(1)
+    const since = earlierHigher ? `since ${earlierHigher}` : `since records began in ${firstYear}`
+    return `${label} had ${shown} times the usual amount of fire here. The most ${since}.`
+  }
+  if (ratio !== null && ratio <= 0.67) {
+    return `${label} had less fire than usual here, about ${(ratio * 100).toFixed(0)}% of the usual amount.`
+  }
+  return `${label} was about normal for fire here.`
 }
 
 /** Raw hotspot statistics: never corrected, never comparable across 2012. */

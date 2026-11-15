@@ -1,7 +1,7 @@
 import { getActivity, getStats } from '../api'
 import { useSelectionQuery } from '../hooks/useSelectionQuery'
-import { formatDate, formatMonth } from '../lib/days'
-import { coordinates, count, megawatts, times } from '../lib/format'
+import { formatDate, formatMonth, periodLabel } from '../lib/days'
+import { coordinates, count, megawatts, plural, times } from '../lib/format'
 import { hasAnswer } from '../types'
 import type { ActivityResponse, Coverage, Selection, StatsResponse } from '../types'
 import { YearChart } from './YearChart'
@@ -41,7 +41,14 @@ export function StatsPanel({ selection, placeName }: StatsPanelProps) {
       {answer && <CoverageNote coverage={answer.coverage} progress={answer.progress} detail={answer.detail} />}
 
       {answer?.summary && (
-        <p className="headline">{answer.summary.sentence}</p>
+        <>
+          <p className="headline">{answer.summary.sentence}</p>
+          <p className="small muted compare-note">
+            Corrected so the two cameras can be compared. This weighs{' '}
+            {periodLabel(answer.summary.year, answer.summary.months)} against the same
+            months in {answer.summary.years_compared} other years.
+          </p>
+        </>
       )}
       {answer && !answer.summary && hasAnswer(answer.coverage) && (
         <p className="headline muted">
@@ -133,7 +140,7 @@ function RawNumbers({ numbers }: { numbers: StatsResponse }) {
           <dt>Busiest day</dt>
           <dd>
             {numbers.peak_day
-              ? <>{formatDate(numbers.peak_day.date)}<span className="small muted peak-count">{count(numbers.peak_day.detections)} detections</span></>
+              ? <>{formatDate(numbers.peak_day.date)}<span className="small muted peak-count">{plural(numbers.peak_day.detections, 'detection')}</span></>
               : '—'}
           </dd>
         </div>
@@ -145,7 +152,7 @@ function RawNumbers({ numbers }: { numbers: StatsResponse }) {
 
       {now && (
         <p className="this-year">
-          <strong>{now.year} so far:</strong> {count(now.detections)} detections
+          <strong>{now.year} so far:</strong> {plural(now.detections, 'detection')}
           {usual
             ? <> — {times(usual.detections ? now.detections / usual.detections : 0)} a typical
               year here ({count(usual.detections)} detections, the middle of {usual.years} years
