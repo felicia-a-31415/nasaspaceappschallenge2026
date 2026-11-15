@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 
 Z80 = 1.2816  # half-width of an 80% band, in standard deviations
+OVERLAP = ("2012-02", "2025-12")  # months both sensors flew: used to fit and test
 
 
 def fit(monthly):

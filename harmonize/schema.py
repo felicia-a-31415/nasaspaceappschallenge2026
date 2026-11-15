@@ -23,6 +23,9 @@ COLUMNS = [
 
 VIIRS_LEVELS = {"l": "low", "n": "nominal", "h": "high"}
 
+# Text columns with few distinct values. Stored as categories to save memory.
+CATEGORICAL = ["sensor", "satellite", "dataset", "source_file", "confidence_level", "daynight", "version"]
+
 
 def load_source(path):
     """Read one FIRMS CSV, keeping confidence, time and version as text."""
@@ -60,7 +63,11 @@ def unify(df, dataset, source_file):
         out["type"] = pd.array([pd.NA] * len(df), dtype="Int64")
     out["type_missing"] = out["type"].isna()
     out["version"] = df["version"].astype(str)
-    return out[COLUMNS].reset_index(drop=True)
+    return _categorise(out[COLUMNS].reset_index(drop=True))
+
+
+def _categorise(df):
+    return df.astype({col: "category" for col in CATEGORICAL})
 
 
 def source_paths(root=".", region="quebec"):
@@ -82,7 +89,8 @@ def load_all(root=".", region="quebec"):
     ]
     if not parts:
         raise FileNotFoundError(f"no FIRMS CSV files under {Path(root) / 'data' / region}")
-    return pd.concat(parts, ignore_index=True)
+    # files have different category sets, so concat falls back to text: re-apply
+    return _categorise(pd.concat(parts, ignore_index=True))
 
 
 STATIC_CELL_DEG = 0.01   # about 1 km
@@ -90,9 +98,9 @@ STATIC_MIN_HITS = 3
 
 
 def _static_key(df):
-    lat = np.floor(np.round(df["latitude"] / STATIC_CELL_DEG, 6)).astype(int)
-    lon = np.floor(np.round(df["longitude"] / STATIC_CELL_DEG, 6)).astype(int)
-    return lat.astype(str) + "_" + lon.astype(str)
+    lat = np.floor(np.round(df["latitude"] / STATIC_CELL_DEG, 6)).astype("int64")
+    lon = np.floor(np.round(df["longitude"] / STATIC_CELL_DEG, 6)).astype("int64")
+    return lat * 1_000_000 + lon
 
 
 def flag_static(df):

@@ -2,3 +2,9 @@ pandas
 numpy
 matplotlib
 pytest
+pyarrow
+shapely
+fastapi
+uvicorn
+httpx
+python-dotenv
