@@ -1322,6 +1322,12 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
    only new colour is on the data: a detection is coloured by how recent it is. */
 
 .sheet-foot .copy-link { margin-right: auto; }
+.share { flex: 1 1 auto; display: flex; align-items: center; gap: 6px; }
+.share-label { margin-right: auto; font: 600 13px/1 var(--sans); color: var(--ink); }
+.share button { flex: 1 1 0; padding-inline: 4px; }
+.sheet-foot .share button:first-of-type { background: var(--ink); color: #111417; font-weight: 600; }
+.sheet-foot .share button:first-of-type:hover { background: #fff; }
+button.link.ops-method { display: inline; align-self: auto; font-size: inherit; }
 .ops-status { margin: 0; font-size: 12px; line-height: 1.4; color: var(--ink-3); }
 .ops-status.is-past { color: var(--warn); }
 
@@ -1366,7 +1372,10 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
 .daydock .td-main { gap: 8px 14px; }
 .day-step { flex: none; display: flex; gap: 6px; }
 .day-step .play { font-size: 20px; line-height: 1; padding-bottom: 2px; }
-.day-readout { width: 236px; }
+.day-readout { flex: none; display: flex; flex-direction: column; gap: 4px; width: 236px; }
+.day-readout strong { font: 600 18px/1.1 var(--sans); letter-spacing: -0.01em; white-space: nowrap; }
+.day-readout > span { font: 400 11px/1.2 var(--mono); color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.day-readout > span b { font-weight: 500; color: var(--ink); }
 .day-readout label { position: relative; align-self: flex-start; cursor: pointer; }
 .day-readout label strong { display: block; padding-right: 22px; }
 .day-readout label:hover strong { text-decoration: underline; text-underline-offset: 4px; text-decoration-thickness: 1px; }
@@ -1392,7 +1401,9 @@ button.link, .year button, .handle, .search-go, .area-list button { background: 
 .day-bars { position: absolute; inset: 0; width: 100%; height: 100%; }
 .day-bar { fill: rgba(255, 255, 255, 0.28); }
 .day-bar.is-window { fill: #f7a11b; }
-.day-plot .track-band { min-width: 4px; }
+.day-band { position: absolute; top: 0; bottom: -2px; min-width: 4px; background: color-mix(in srgb, var(--accent) 9%, transparent); border-bottom: 2px solid var(--accent); pointer-events: none; }
+.day-after { position: absolute; top: 0; right: 0; bottom: 0; background: repeating-linear-gradient(135deg, var(--rule), var(--rule) 3px, transparent 3px, transparent 7px); }
+.day-step .play { width: 40px; height: 40px; }
 .day-head { position: absolute; top: -5px; bottom: -4px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--accent); pointer-events: none; }
 .day-months { position: relative; height: 16px; margin-top: 3px; font: 400 11px/14px var(--mono); color: var(--ink-2); }
 .day-months span { position: absolute; padding-left: 3px; border-left: 1px solid var(--ink-3); }

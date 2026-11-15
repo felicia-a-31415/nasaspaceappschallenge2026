@@ -6,16 +6,7 @@ this folder is the page. The two sides meet only at the HTTP endpoints.
 
 ## Running it
 
-```
-npm install
-python3 scripts/make-mock-hotspots.py   # once: builds the 20 MB sample, gitignored
-npm run dev
-```
-
-That runs against mocks. The mocks answer from the same hotspots the map is drawing, so
-the panel and the dots always agree.
-
-Against the real server, started from the repo root:
+Start the server from the repo root, then the page:
 
 ```
 python3 -m venv .venv
@@ -24,13 +15,22 @@ python3 -m venv .venv
 ```
 
 ```
-VITE_USE_MOCKS=false npm run dev
+npm install
+npm run dev
 ```
 
 `/api` is proxied to `http://localhost:8000` in development. A production build is the
-other way round: it is the page the server itself serves at `/`, so it talks to the real
-endpoints unless `VITE_USE_MOCKS=true` is set at build time, and it never needs a host
-name. `npm run build` also leaves the 20 MB sample out of `dist/`.
+page the server itself serves at `/`, so it never needs a host name.
+
+With no server to hand, the page can run against mocks instead. Their numbers come from a
+sample, not the record, and they carry no spread forecast:
+
+```
+python3 scripts/make-mock-hotspots.py   # once: builds the 20 MB sample, gitignored
+VITE_USE_MOCKS=true npm run dev
+```
+
+`npm run build` leaves the sample out of `dist/`.
 
 ## Checks
 
@@ -44,7 +44,7 @@ npm run build      # type check and production build
 | Path | What it holds |
 | --- | --- |
 | `src/types.ts` | Every response shape, copied from the handoff. The only place to update if the backend changes one. |
-| `src/api.ts` | One function per endpoint, each with a mock twin chosen by `VITE_USE_MOCKS`. Nothing else calls `fetch`. |
+| `src/api.ts` | One function per endpoint, each with a mock twin, used only when `VITE_USE_MOCKS=true`. Nothing else calls `fetch`. |
 | `src/view.ts` | The `View`: place, radius, period, mode. Parsed from and written to the query string. Everything that reads the selection reads it from here. |
 | `src/forecast.ts` | The reserved forecast seam: a type, a layer id, and "not available". No endpoint shape is invented. |
 | `src/mocks/` | The mock twins, derived from the loaded hotspots. |

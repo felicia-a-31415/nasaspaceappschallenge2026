@@ -20,6 +20,7 @@ export interface OpsPanelProps {
   onRadius: (km: number) => void
   onPick: (lat: number, lon: number, name: string | null) => void
   onClear: () => void
+  onMethod: () => void
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -31,7 +32,7 @@ const short = (date: string) => `${Number(date.slice(8, 10))} ${MONTHS[Number(da
  * was seen here this week and how near, what the coming days look like, the weather that
  * led up to it, how the year compares, and where in the region fire is most active.
  */
-export function OpsPanel({ view, hotspots, state, placeName, radii, onRadius, onPick, onClear }: OpsPanelProps) {
+export function OpsPanel({ view, hotspots, state, placeName, radii, onRadius, onPick, onClear, onMethod }: OpsPanelProps) {
   const { board, cells } = state
   const { lat, lon, radius_km: radiusKm } = view
   const chosen = lat !== null && lon !== null
@@ -60,16 +61,18 @@ export function OpsPanel({ view, hotspots, state, placeName, radii, onRadius, on
           </div>
         )}
 
+      {/* Looking at the whole region, the first question is where the fire is. */}
+      {!chosen && <Cells cells={cells} onPick={onPick} />}
       <Detections board={board} epoch={hotspots.epoch} chosen={chosen} />
-      {/* The experimental spread forecast, in words, when the server has one for this day. */}
-      <ForecastSlot view={view} dataThrough={hotspots.dataThrough} />
+      {/* The experimental spread forecast, in words. It keeps its place and says why when there is none. */}
+      <ForecastSlot view={view} dataThrough={hotspots.dataThrough} explain />
+      {chosen && <Cells cells={cells} onPick={onPick} />}
       {chosen && <OutlookBlock state={state} />}
       {chosen && <Weather state={state} />}
       {board.season && <Season season={board.season} date={board.date} />}
-      <Cells cells={cells} onPick={onPick} />
       <p className="small muted">
         Satellite detections by date, with no time of day. Cloud and thick smoke hide fire.
-        Not a fire perimeter.
+        Not a fire perimeter. <button type="button" className="link ops-method" onClick={onMethod}>Method</button>
       </p>
     </>
   )
@@ -278,17 +281,22 @@ function useNames(cells: ActiveCell[]): Record<string, string> {
   return names
 }
 
+/** How many areas show before "Show all". */
+const CELLS_SHOWN = 5
+
 function Cells({ cells, onPick }: { cells: ActiveCell[]; onPick: OpsPanelProps['onPick'] }) {
   const names = useNames(cells)
+  const [all, setAll] = useState(false)
+  const listed = all ? cells : cells.slice(0, CELLS_SHOWN)
   return (
     <section className="top-areas">
-      <h3>Most active areas, last 7 days</h3>
+      <h3>Where fire is most active</h3>
       {cells.length === 0
         ? <p className="muted small">No detections in the region in these 7 days.</p>
         : (
           <>
             <ol className="area-list">
-              {cells.map((c, i) => {
+              {listed.map((c, i) => {
                 const name = names[coords(c)]
                 return (
                   <li key={coords(c)}>
@@ -310,7 +318,10 @@ function Cells({ cells, onPick }: { cells: ActiveCell[]; onPick: OpsPanelProps['
                 )
               })}
             </ol>
-            <p className="small muted">10 km squares, ranked by total fire power. Numbered on the map; click one to look at it.</p>
+            <p className="small muted">
+              Click one to go there. Numbered on the map when zoomed in.
+              {cells.length > CELLS_SHOWN && <> <button type="button" className="link ops-method" onClick={() => setAll((on) => !on)}>{all ? 'Show fewer' : `Show all ${cells.length}`}</button></>}
+            </p>
           </>
         )}
     </section>

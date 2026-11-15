@@ -57,4 +57,13 @@ describe('the spread forecast in the panel', () => {
     const none = render(<ForecastSlot view={{ ...view, lat: 60 }} dataThrough="2026-11-14" />)
     await waitFor(() => expect(none.container.innerHTML).toBe(''))
   })
+
+  it('keeps its place and says why when asked to explain', async () => {
+    const nowhere = render(<ForecastSlot view={{ ...view, lat: null, lon: null }} dataThrough="2026-11-14" explain />)
+    expect(nowhere.container.textContent).toContain('pick an area')
+    cleanup()
+    asked.mockResolvedValue({ available: false, reason: 'Nothing here yet.' })
+    render(<ForecastSlot view={view} dataThrough="2026-11-14" explain />)
+    await screen.findByText('Nothing here yet.')
+  })
 })
