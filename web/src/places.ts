@@ -1,11 +1,16 @@
-// Place search. This is the one service outside our own server the page talks to:
+// Place search without a Google key (see googlePlaces.ts for the one with). This is a
+// service outside our own server:
 // Nominatim, OpenStreetMap's free search, which needs no key. Its terms ask for at most
 // one request a second and for the credit to be shown, so both are handled here.
+
+import { GOOGLE_PLACES_ENABLED } from './googlePlaces'
 
 const ENDPOINT = 'https://nominatim.openstreetmap.org/search'
 const MIN_GAP_MS = 1000
 
-export const PLACE_SEARCH_CREDIT = 'Place search: OpenStreetMap Nominatim'
+export const PLACE_SEARCH_CREDIT = GOOGLE_PLACES_ENABLED
+  ? 'Place search: Google'
+  : 'Place search: OpenStreetMap Nominatim'
 
 export interface Place {
   name: string
