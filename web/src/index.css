@@ -188,10 +188,13 @@ a { color: var(--accent); }
 
 @media (max-width: 880px) {
   :root { --side-w: 0px; }
+  /* No room beside the map: the panel becomes a sheet between the search box and the
+     time bar, so both stay reachable. */
   .side {
     width: calc(100% - 24px);
-    bottom: auto;
-    max-height: 46%;
+    top: auto;
+    bottom: calc(var(--timebar-h) + 24px);
+    max-height: 44%;
   }
   .topbar { max-width: calc(100% - 24px); }
   .timebar { right: 12px; }

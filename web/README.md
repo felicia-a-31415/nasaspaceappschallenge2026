@@ -15,14 +15,22 @@ npm run dev
 That runs against mocks. The mocks answer from the same hotspots the map is drawing, so
 the panel and the dots always agree.
 
-Against the real server (start it from the repo root first, see the root README):
+Against the real server, started from the repo root:
+
+```
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+.venv/bin/uvicorn server.app:app --port 8000
+```
 
 ```
 VITE_USE_MOCKS=false npm run dev
 ```
 
-`/api` is proxied to `http://localhost:8000` in development; in production the server
-serves the built page from the same origin, so the page never needs a host name.
+`/api` is proxied to `http://localhost:8000` in development. A production build is the
+other way round: it is the page the server itself serves at `/`, so it talks to the real
+endpoints unless `VITE_USE_MOCKS=true` is set at build time, and it never needs a host
+name. `npm run build` also leaves the 20 MB sample out of `dist/`.
 
 ## Checks
 
@@ -55,3 +63,15 @@ npm run build      # type check and production build
   larger, so colour is never the only signal.
 - **Raw counts before and after February 2012 are never compared.** A sharper camera took
   over then. The notice by the slider and the break in the yearly chart both say so.
+- **The video export writes its own overlays.** Overlays drawn as HTML are not part of
+  the map's canvas, so the date, legend, 2012 notice and credits are painted into each
+  frame (`src/map/videoFrame.ts`). The map is created with `preserveDrawingBuffer` for
+  this to capture anything.
+
+## Two things that will bite you
+
+- MapLibre's stylesheet is injected after `index.css`, so any rule of ours that overrides
+  it needs the extra `.app` in front of it.
+- MapLibre builds its worker URL at runtime, which no bundler can follow. `MapView.tsx`
+  imports that worker with `?url` and sets `config.WORKER_URL`. Without it the base map
+  is blank in a production build.

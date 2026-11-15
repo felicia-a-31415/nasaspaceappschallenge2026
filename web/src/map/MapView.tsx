@@ -1,13 +1,19 @@
 import { DataFilterExtension } from '@deck.gl/extensions'
 import { PolygonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import { MapLibreOverlay } from '@deck.gl/maplibre'
-import { AttributionControl, Map as MapLibreMap, MapMouseEvent, NavigationControl, ScaleControl } from 'maplibre-gl'
+import { AttributionControl, config, Map as MapLibreMap, MapMouseEvent, NavigationControl, ScaleControl } from 'maplibre-gl'
+// MapLibre parses its tiles in a web worker whose URL it builds at runtime, which no
+// bundler can follow. Pointing it at the worker as an asset makes both the dev server
+// and the production build serve the right file.
+import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { useEffect, useMemo, useRef } from 'react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
 import { formatDate } from '../lib/days'
 import { circlePolygon, CELL_DEG } from '../lib/geo'
 import type { HotspotArrays, Selection, TopArea } from '../types'
+
+config.WORKER_URL = workerUrl
 
 /** A free dark style that needs no key. Its attribution travels with the style. */
 const BASE_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json'
