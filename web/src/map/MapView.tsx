@@ -1,7 +1,7 @@
 import { DataFilterExtension } from '@deck.gl/extensions'
 import { PolygonLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import { MapLibreOverlay } from '@deck.gl/maplibre'
-import { Map as MapLibreMap, MapMouseEvent, NavigationControl, ScaleControl } from 'maplibre-gl'
+import { AttributionControl, Map as MapLibreMap, MapMouseEvent, NavigationControl, ScaleControl } from 'maplibre-gl'
 import { useEffect, useMemo, useRef } from 'react'
 import 'maplibre-gl/dist/maplibre-gl.css'
 
@@ -55,15 +55,17 @@ export function MapView({ hotspots, dayRange, selection, topAreas, onMapClick, o
       style: BASE_STYLE,
       bounds: [-79.8, 44.9, -57.1, 62.6], // Quebec, from the hotspot bounding box.
       fitBoundsOptions: { padding: 24 },
-      attributionControl: { compact: true },
+      // Added below instead, so it sits with the other controls, clear of the time bar.
+      attributionControl: false,
       canvasContextAttributes: {
         // Needed so the animation can be recorded from the canvas (F9).
         preserveDrawingBuffer: true,
         antialias: true,
       },
     })
-    map.addControl(new NavigationControl({ showCompass: false }), 'bottom-right')
-    map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-right')
+    map.addControl(new AttributionControl({ compact: true }), 'bottom-left')
+    map.addControl(new NavigationControl({ showCompass: false }), 'bottom-left')
+    map.addControl(new ScaleControl({ unit: 'metric' }), 'bottom-left')
     map.on('click', (e: MapMouseEvent) => clickRef.current(Number(e.lngLat.lat.toFixed(4)), Number(e.lngLat.lng.toFixed(4))))
 
     const overlay = new MapLibreOverlay({

@@ -13,6 +13,8 @@
   --estimated: #8ab4ff;
   --warn: #ffd27d;
   --radius: 10px;
+  --side-w: 348px;
+  --timebar-h: 120px;
   --shadow: 0 6px 24px rgba(0, 0, 0, 0.55);
   color-scheme: dark;
 }
@@ -61,10 +63,8 @@ a { color: var(--accent); }
 .app { position: relative; height: 100%; }
 
 /* MapLibre's own stylesheet sets position: relative on the container and is injected
-   after this file, so the selector below has to be the more specific one. */
+   after this file, so the selectors here have to be the more specific ones. */
 .app .map { position: absolute; inset: 0; }
-
-.maplibregl-ctrl-attrib { font-size: 11px; }
 
 .panel-surface {
   background: color-mix(in srgb, var(--panel) 92%, transparent);
@@ -83,22 +83,22 @@ a { color: var(--accent); }
   flex-wrap: wrap;
   gap: 10px;
   align-items: flex-start;
-  max-width: calc(100% - 24px);
+  max-width: calc(100% - var(--side-w) - 36px);
 }
 
 .brand { padding: 9px 13px; }
 .brand h1 { font-size: 15px; }
-.brand p { margin: 2px 0 0; font-size: 12px; color: var(--ink-dim); }
+.brand p { margin: 2px 0 0; font-size: 12px; color: var(--ink-dim); max-width: 42ch; }
 
 .side {
   position: absolute;
   top: 12px;
   right: 12px;
-  bottom: 148px;
+  bottom: 12px;
   z-index: 3;
-  width: 348px;
-  max-width: calc(100% - 24px);
+  width: var(--side-w);
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -108,29 +108,28 @@ a { color: var(--accent); }
 .timebar {
   position: absolute;
   left: 12px;
-  right: 12px;
+  right: calc(var(--side-w) + 24px);
   bottom: 12px;
   z-index: 3;
-  padding: 12px 16px;
+  padding: 10px 16px 12px;
 }
 
 .legend {
   position: absolute;
   left: 12px;
-  bottom: 148px;
+  bottom: calc(var(--timebar-h) + 24px);
   z-index: 3;
   padding: 10px 12px;
-  width: 232px;
+  width: 252px;
 }
 
 .credits {
-  position: absolute;
-  left: 12px;
-  bottom: 120px;
-  z-index: 2;
+  margin: 8px 0 0;
+  padding-top: 7px;
+  border-top: 1px solid var(--panel-edge);
   font-size: 11px;
+  line-height: 1.4;
   color: var(--ink-dim);
-  max-width: 340px;
 }
 
 /* --- loading and errors ------------------------------------------------- */
@@ -180,26 +179,80 @@ a { color: var(--accent); }
 .muted { color: var(--ink-dim); }
 .small { font-size: 12px; }
 
-@media (max-width: 900px) {
-  .side { width: 300px; }
-  .legend { display: none; }
+@media (max-width: 1180px) {
+  :root { --side-w: 300px; }
 }
 
-/* MapLibre's own controls, repainted for the dark page. */
-.maplibregl-ctrl-group {
+@media (max-width: 880px) {
+  :root { --side-w: 0px; }
+  .side {
+    width: calc(100% - 24px);
+    bottom: auto;
+    max-height: 46%;
+  }
+  .topbar { max-width: calc(100% - 24px); }
+  .timebar { right: 12px; }
+  .legend, .app .maplibregl-ctrl-bottom-left { display: none; }
+}
+
+/* MapLibre's own controls, repainted for the dark page and lifted clear of the time bar. */
+.app .maplibregl-ctrl-bottom-left {
+  left: 276px;
+  bottom: calc(var(--timebar-h) + 24px);
+}
+.app .maplibregl-ctrl-group {
   background: var(--panel);
   border: 1px solid var(--panel-edge);
+  box-shadow: var(--shadow);
 }
-.maplibregl-ctrl-group button + button { border-top: 1px solid var(--panel-edge); }
-.maplibregl-ctrl-group button span { filter: invert(1); }
-.maplibregl-ctrl-attrib.maplibregl-compact {
+.app .maplibregl-ctrl-group button + button { border-top: 1px solid var(--panel-edge); }
+.app .maplibregl-ctrl-group button span { filter: invert(1); }
+.app .maplibregl-ctrl-attrib,
+.app .maplibregl-ctrl-attrib.maplibregl-compact {
+  font-size: 11px;
   background: color-mix(in srgb, var(--panel) 92%, transparent);
   color: var(--ink-dim);
 }
-.maplibregl-ctrl-attrib a { color: var(--ink-dim); }
-.maplibregl-ctrl-scale {
+.app .maplibregl-ctrl-attrib a { color: var(--ink-dim); }
+.app .maplibregl-ctrl-attrib-button { filter: invert(1); }
+.app .maplibregl-ctrl .maplibregl-ctrl-scale,
+.app .maplibregl-ctrl-scale {
   background: color-mix(in srgb, var(--panel) 80%, transparent);
   border-color: var(--panel-edge);
   color: var(--ink);
 }
-.maplibregl-ctrl-attrib-button { filter: invert(1); }
+
+/* --- legend -------------------------------------------------------------- */
+
+.legend-title { font-size: 13px; }
+
+.legend-bar {
+  height: 12px;
+  margin: 8px 0 4px;
+  border-radius: 3px;
+  border: 1px solid var(--panel-edge);
+}
+
+.legend-ticks {
+  position: relative;
+  height: 15px;
+  font-size: 11px;
+  color: var(--ink-dim);
+}
+.legend-ticks span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+.legend-ticks span:first-child { transform: none; }
+.legend-ticks span:last-child { transform: translateX(-100%); }
+
+.legend-ends {
+  display: flex;
+  justify-content: space-between;
+  margin: 2px 0 0;
+  font-size: 11px;
+  color: var(--ink);
+}
+
+.legend-note { margin: 6px 0 0; line-height: 1.35; }

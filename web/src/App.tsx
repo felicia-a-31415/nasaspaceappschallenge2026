@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getAbout } from './api'
+import { Legend } from './components/Legend'
 import { useHotspots } from './hooks/useHotspots'
-import { formatDate } from './lib/days'
 import { MapView } from './map/MapView'
 import type { AboutResponse, Selection } from './types'
 
@@ -39,10 +39,7 @@ export default function App() {
         </div>
       </div>
 
-      <p className="credits">
-        {dataThrough ? `Data up to ${formatDate(dataThrough)}. ` : ''}
-        Fire data: NASA FIRMS (MODIS, VIIRS). Base map © OpenStreetMap contributors, © CARTO.
-      </p>
+      {data && <Legend dataThrough={dataThrough} />}
 
       {hotspots.status === 'loading' && (
         <div className="curtain">
